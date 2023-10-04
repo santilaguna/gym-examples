@@ -14,9 +14,9 @@ K = 1000  # max amount of shares to buy
 action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int)
 
 # Create your custom Gym environment with this action space
-class CustomEnv(gym.Env):
+class YFBasic(gym.Env):
     def __init__(self, stock_symbols, data_folder, start_date, end_date, initial_balance=1000000.0):
-        super(CustomEnv, self).__init__()
+        super(YFBasic, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
         self.data_folder = data_folder
