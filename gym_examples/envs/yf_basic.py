@@ -13,9 +13,22 @@ num_dimensions = 30
 K = 1000  # max amount of shares to buy
 action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int32)
 
+
+# default values
+dft_stock_symbols = [
+    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS"
+]
+dft_data_folder = os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
+
+dft_start_date = "2009-01-01"
+dft_end_date = "2018-09-30"
+dft_balance = 1000000.0
 # Create your custom Gym environment with this action space
 class YFBasic(gym.Env):
-    def __init__(self, stock_symbols, data_folder, start_date, end_date, initial_balance=1000000.0):
+    def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
+            end_date=dft_end_date, initial_balance=dft_balance):
         super(YFBasic, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
@@ -23,7 +36,7 @@ class YFBasic(gym.Env):
         self.start_date = start_date
         self.end_date = end_date
         self.current_step = 0
-        self.initial_balance = initial_balance
+        self.initial_balance = np.float32(initial_balance)
 
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
@@ -31,12 +44,16 @@ class YFBasic(gym.Env):
             file_path = os.path.join(data_folder, f"{symbol}_historical_data.csv")
             if os.path.exists(file_path):
                 self.stock_data[symbol] = pd.read_csv(file_path, index_col=0)
+            else:
+                print(os.listdir())
+                print(f"File {file_path} not found")
+                raise FileNotFoundError(f"File {file_path} not found")
         
         # Initialize the states space [p, h, b], prices, holdings, balance
         self.observation_space = spaces.Tuple((
             spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
             spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int32),
-            gym.spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
+            spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
             # TODO: add additional information of the state
         ))
         self.current_state = (
@@ -45,7 +62,10 @@ class YFBasic(gym.Env):
             self.initial_balance
         )
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        # We need the following line to seed self.np_random
+        super().reset(seed=seed)
+
         # Reset your environment (if needed)
         self.current_step = 0
         self.current_state = (
@@ -53,7 +73,7 @@ class YFBasic(gym.Env):
             np.zeros(num_dimensions, dtype=np.int32),
             self.initial_balance
         )
-        return self._get_observation()
+        return self._get_observation(), {}
 
     def step(self, action):
         # go next trading day to calculate reward
@@ -109,13 +129,16 @@ class YFBasic(gym.Env):
         balance *= fixed_cost
         while balance < needed_to_buy:
             # TODO: find a better way to reduce the number of stocks to buy
+            to_delete = set()
             for i in stocks_to_buy:
                 stocks_to_buy[i] -= 1
                 needed_to_buy -= initial_prices[i]
                 if stocks_to_buy[i] == 0:
-                    del stocks_to_buy[i]
+                    to_delete.add(i)
                 if balance >= needed_to_buy:
                     break
+            for i in to_delete:
+                del stocks_to_buy[i]
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price, dividends, stock split, etc.
         new_value = 0
@@ -143,19 +166,22 @@ class YFBasic(gym.Env):
                 else:
                     closing_prices.append(0.0)
             else:
+                print(self.stock_data.keys())
+                print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
                 # closing_prices.append(0.0)
         return np.array(closing_prices, dtype=np.float32)
 
-# Define the stock symbols and date range
-stock_symbols = [
-    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS"
-]
-data_folder = "yf_data"
-start_date = "2009-01-01"
-end_date = "2018-09-30"
+# # Define the stock symbols and date range
+# stock_symbols = [
+#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS"
+# ]
+# data_folder = os.path.join("gym-examples", "gym_examples", "envs", "yf_data"))
+
+# start_date = "2009-01-01"
+# end_date = "2018-09-30"
 
 # Instantiate your custom environment
-env = YFBasic(stock_symbols, data_folder, start_date, end_date)
+# env = YFBasic(stock_symbols, data_folder, start_date, end_date)
