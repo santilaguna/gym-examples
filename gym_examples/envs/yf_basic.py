@@ -11,7 +11,7 @@ num_dimensions = 30
 
 # Create a Box space for the continuous action space
 K = 1000  # max amount of shares to buy
-action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int)
+action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int32)
 
 # Create your custom Gym environment with this action space
 class YFBasic(gym.Env):
@@ -35,13 +35,13 @@ class YFBasic(gym.Env):
         # Initialize the states space [p, h, b], prices, holdings, balance
         self.observation_space = spaces.Tuple((
             spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int),
+            spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int32),
             gym.spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
             # TODO: add additional information of the state
         ))
         self.current_state = (
             self._get_closing_prices(),
-            np.zeros(num_dimensions, dtype=np.int),
+            np.zeros(num_dimensions, dtype=np.int32),
             self.initial_balance
         )
 
@@ -50,7 +50,7 @@ class YFBasic(gym.Env):
         self.current_step = 0
         self.current_state = (
             self._get_closing_prices(),
-            np.zeros(num_dimensions, dtype=np.int),
+            np.zeros(num_dimensions, dtype=np.int32),
             self.initial_balance
         )
         return self._get_observation()
@@ -119,7 +119,7 @@ class YFBasic(gym.Env):
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price, dividends, stock split, etc.
         new_value = 0
-        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.int)
+        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.int32)
         for i in range(len(self.stock_symbols)):
             if i in stocks_to_buy:
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
@@ -158,4 +158,4 @@ start_date = "2009-01-01"
 end_date = "2018-09-30"
 
 # Instantiate your custom environment
-env = CustomEnv(stock_symbols, data_folder, start_date, end_date)
+env = YFBasic(stock_symbols, data_folder, start_date, end_date)
