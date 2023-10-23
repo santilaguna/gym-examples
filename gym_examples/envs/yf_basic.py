@@ -12,7 +12,9 @@ num_dimensions = 30
 # Create a Box space for the continuous action space
 K = 1000  # max amount of shares to buy
 action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int32)
-
+# spaces.MultiDiscrete(
+#     np.array([2*K + 1 for i in range(num_dimensions)]), 
+#     dtype=np.int32)  # Nota: debemos restar K a cada acción, dado que el rango debería partir en -K
 
 # default values
 dft_stock_symbols = [
@@ -50,17 +52,17 @@ class YFBasic(gym.Env):
                 raise FileNotFoundError(f"File {file_path} not found")
         
         # Initialize the states space [p, h, b], prices, holdings, balance
-        self.observation_space = spaces.Tuple((
-            spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int32),
-            spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
+        self.observation_space = spaces.Dict({
+            "p": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
+            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int32),
+            "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
             # TODO: add additional information of the state
-        ))
-        self.current_state = (
-            self._get_closing_prices(),
-            np.zeros(num_dimensions, dtype=np.int32),
-            self.initial_balance
-        )
+        })
+        self.current_state = {
+            "p": self._get_closing_prices(),
+            "h": np.zeros(num_dimensions, dtype=np.int32),
+            "b": np.array([self.initial_balance], dtype=np.float32)
+        }
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -68,11 +70,11 @@ class YFBasic(gym.Env):
 
         # Reset your environment (if needed)
         self.current_step = 0
-        self.current_state = (
-            self._get_closing_prices(),
-            np.zeros(num_dimensions, dtype=np.int32),
-            self.initial_balance
-        )
+        self.current_state = {
+            "p": self._get_closing_prices(),
+            "h": np.zeros(num_dimensions, dtype=np.int32),
+            "b": np.array([self.initial_balance], dtype=np.float32)
+        }
         return self._get_observation(), {}
 
     def step(self, action):
@@ -102,12 +104,12 @@ class YFBasic(gym.Env):
         return self.current_state
     
     def _get_reward(self, closing_prices, action):
-        portfolio_value = self.current_state[2]  # balance left from previous day
-        initial_prices = self.current_state[0]
-        initial_holdings = self.current_state[1]
+        portfolio_value = self.current_state["b"][0]  # balance left from previous day
+        initial_prices = self.current_state["p"]
+        initial_holdings = self.current_state["h"]
 
         # check if action is posible and initial portfolio value
-        balance = self.current_state[2]
+        balance = self.current_state["b"][0]
         needed_to_buy = 0
         stocks_to_buy = {}
         for i in range(len(self.stock_symbols)):
@@ -152,8 +154,15 @@ class YFBasic(gym.Env):
 
         reward = balance + new_value - portfolio_value
 
-        new_state = (closing_prices, final_holdings, balance)
+        new_state = {
+            "p": closing_prices, 
+            "h": final_holdings, 
+            "b": np.array([balance], dtype=np.float32)
+        }
         return reward, new_state
+    
+    def _get_info(self):
+        return {}
 
     def _get_closing_prices(self):
         closing_prices = []
@@ -164,7 +173,8 @@ class YFBasic(gym.Env):
                     closing_price = data.iloc[self.current_step]["Close"]
                     closing_prices.append(closing_price)
                 else:
-                    closing_prices.append(0.0)
+                    # check this
+                    closing_prices.append(np.float32(0.0))
             else:
                 print(self.stock_data.keys())
                 print(self.stock_symbols)
