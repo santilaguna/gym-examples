@@ -8,5 +8,5 @@ register(
 register(
     id="gym_examples/YFBasic-v0",
     entry_point="gym_examples.envs:YFBasic",
-    max_episode_steps=1000,
+    max_episode_steps=10000,
 )

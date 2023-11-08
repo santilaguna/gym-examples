@@ -11,10 +11,10 @@ num_dimensions = 30
 
 # Create a Box space for the continuous action space
 K = 1000  # max amount of shares to buy
-action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int32)
-# spaces.MultiDiscrete(
-#     np.array([2*K + 1 for i in range(num_dimensions)]), 
-#     dtype=np.int32)  # Nota: debemos restar K a cada acción, dado que el rango debería partir en -K
+# action_space = spaces.Box(low=-K, high=K, shape=(num_dimensions,), dtype=np.int32)
+action_space = spaces.MultiDiscrete(
+    np.array([2*K + 1 for i in range(num_dimensions)]), 
+    dtype=np.int32)  # Nota: debemos restar K a cada acción, dado que el rango debería partir en -K
 
 # default values
 dft_stock_symbols = [
@@ -37,15 +37,18 @@ class YFBasic(gym.Env):
         self.data_folder = data_folder
         self.start_date = start_date
         self.end_date = end_date
-        self.current_step = 0
         self.initial_balance = np.float32(initial_balance)
+        self.env = "train"  # train, val or test
+        self.val_init_date = "2015-01-01"
+        self.test_init_date = "2016-01-01"
+        self.current_step = 0
 
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
         for symbol in stock_symbols:
             file_path = os.path.join(data_folder, f"{symbol}_historical_data.csv")
             if os.path.exists(file_path):
-                self.stock_data[symbol] = pd.read_csv(file_path, index_col=0)
+                self.stock_data[symbol] = pd.read_csv(file_path)  #  index_col=0
             else:
                 print(os.listdir())
                 print(f"File {file_path} not found")
@@ -84,13 +87,26 @@ class YFBasic(gym.Env):
         closing_prices = self._get_closing_prices()
         
         reward, new_state = self._get_reward(closing_prices, action)
-        
+        reward /= self.initial_balance
+
         self.current_state = new_state
         
-        done = self.current_step > len(self.stock_data[self.stock_symbols[0]])  # Terminate when data ends
-        info = {}  # Additional information (if needed)
-
-        return new_state, reward, done, False, info
+        data = self.stock_data[self.stock_symbols[0]]  # could be any stock
+        if self.env == "train":
+            date = data.iloc[self.current_step]["Date"]
+            done = date >= self.val_init_date
+        elif self.env == "val":
+            date = data.iloc[self.current_step]["Date"]
+            done = date >= self.test_init_date
+        else:
+            done = self.current_step > len(data)  # Terminate when data ends
+        
+        
+        if np.isnan(new_state["h"]).any() or np.isnan(new_state["p"]).any() or np.isnan(new_state["b"]):
+            print("wololo error")
+        if np.isnan(reward):
+            print("wololo 2 error")
+        return new_state, reward, done, False, {}   # Additional information (if needed)
 
     def render(self):
         # Render your environment (if needed)
@@ -103,7 +119,9 @@ class YFBasic(gym.Env):
     def _get_observation(self):
         return self.current_state
     
-    def _get_reward(self, closing_prices, action):
+    def _get_reward(self, closing_prices, action_):
+        # action fix
+        action = action_ - K  # np.array([x - K for x in action_], dtype=np.int32)
         portfolio_value = self.current_state["b"][0]  # balance left from previous day
         initial_prices = self.current_state["p"]
         initial_holdings = self.current_state["h"]
@@ -114,33 +132,30 @@ class YFBasic(gym.Env):
         stocks_to_buy = {}
         for i in range(len(self.stock_symbols)):
             portfolio_value += initial_holdings[i] * initial_prices[i]
-            # TODO: sell -> negative
-            if action[i] > 0:  # sell
+            # NOTE: sell -> positive in paper
+            if action[i] < 0:  # sell
                 # if action is greater than holdings, sell all holdings
-                # NOTE: we are changing action here, it is not a problem but should be careful
-                if action[i] > initial_holdings[i]:
-                    action[i] = initial_holdings[i]
-                balance += action[i] * initial_prices[i]
-            elif action[i] < 0:  # buy
-                needed_to_buy += -action[i] * initial_prices[i]
-                stocks_to_buy[i] = -action[i]
+                if (-1 * action[i]) >= initial_holdings[i]:
+                    balance += (initial_holdings[i] * initial_prices[i])
+                else:
+                    balance += (-1 * action[i]) * initial_prices[i]
+            elif action[i] > 0:  # buy
+                needed_to_buy += action[i] * initial_prices[i]
+                stocks_to_buy[i] = action[i]
             else:  # hold
                 pass
         # TODO: cost should be variable, not fixed
-        fixed_cost = 0.996 # 0.4% transaction cost (0.2% each way)
-        balance *= fixed_cost
-        while balance < needed_to_buy:
+        fixed_cost = 1.004  # 0.4% transaction cost (0.2% each way)
+        while balance < needed_to_buy * fixed_cost:
             # TODO: find a better way to reduce the number of stocks to buy
-            to_delete = set()
             for i in stocks_to_buy:
+                if stocks_to_buy[i] <= 0:  # need to keep for later portfolio math
+                    continue
                 stocks_to_buy[i] -= 1
                 needed_to_buy -= initial_prices[i]
-                if stocks_to_buy[i] == 0:
-                    to_delete.add(i)
-                if balance >= needed_to_buy:
+                if balance >= needed_to_buy * fixed_cost:
                     break
-            for i in to_delete:
-                del stocks_to_buy[i]
+        needed_to_buy *= fixed_cost
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price, dividends, stock split, etc.
         new_value = 0
@@ -149,9 +164,8 @@ class YFBasic(gym.Env):
             if i in stocks_to_buy:
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
             else:
-                final_holdings[i] = initial_holdings[i] - action[i]
+                final_holdings[i] = max(initial_holdings[i] + action[i], 0)
             new_value += final_holdings[i] * closing_prices[i]
-
         reward = balance + new_value - portfolio_value
 
         new_state = {
