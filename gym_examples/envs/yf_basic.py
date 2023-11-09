@@ -38,7 +38,7 @@ class YFBasic(gym.Env):
         self.start_date = start_date
         self.end_date = end_date
         self.initial_balance = np.float32(initial_balance)
-        self.env = "train"  # train, val or test
+        self.eval_env = "train"  # train, val or test
         self.val_init_date = "2015-01-01"
         self.test_init_date = "2016-01-01"
         self.current_step = 0
@@ -67,12 +67,24 @@ class YFBasic(gym.Env):
             "b": np.array([self.initial_balance], dtype=np.float32)
         }
 
+    def set_env(self, env):
+        self.eval_env = env
+
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
-
         # Reset your environment (if needed)
         self.current_step = 0
+        if self.eval_env in {"val", "test"}:
+            data = self.stock_data[self.stock_symbols[0]]  # could be any stock
+            start_date = self.val_init_date if self.eval_env == "val" else self.test_init_date
+            done = False
+            while not done:
+                self.current_step += 1
+                date = data.iloc[self.current_step]["Date"]
+                done = date >= start_date
+
+
         self.current_state = {
             "p": self._get_closing_prices(),
             "h": np.zeros(num_dimensions, dtype=np.int32),
@@ -92,10 +104,10 @@ class YFBasic(gym.Env):
         self.current_state = new_state
         
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
-        if self.env == "train":
+        if self.eval_env == "train":
             date = data.iloc[self.current_step]["Date"]
             done = date >= self.val_init_date
-        elif self.env == "val":
+        elif self.eval_env == "val":
             date = data.iloc[self.current_step]["Date"]
             done = date >= self.test_init_date
         else:
