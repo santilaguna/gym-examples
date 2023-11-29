@@ -27,6 +27,8 @@ dft_data_folder = os.path.join("gym-examples", "gym_examples", "envs", "yf_data"
 dft_start_date = "2009-01-01"
 dft_end_date = "2018-09-30"
 dft_balance = 1000000.0
+dft_normalize_price = 25
+dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
 class YFBasic(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
@@ -38,6 +40,8 @@ class YFBasic(gym.Env):
         self.start_date = start_date
         self.end_date = end_date
         self.initial_balance = np.float32(initial_balance)
+        self.normalize_price = np.float32(dft_normalize_price)
+        self.normalize_holdings = np.float32(dft_normalize_holdings)
         self.eval_env = "train"  # train, val or test
         self.val_init_date = "2015-01-01"
         self.test_init_date = "2016-01-01"
@@ -56,15 +60,16 @@ class YFBasic(gym.Env):
         
         # Initialize the states space [p, h, b], prices, holdings, balance
         self.observation_space = spaces.Dict({
+            # TODO: preguntar si al normalizar importa que teoricamente el maximo sea infinito
             "p": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.int32),
+            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
             # TODO: add additional information of the state
         })
         self.current_state = {
-            "p": self._get_closing_prices(),
-            "h": np.zeros(num_dimensions, dtype=np.int32),
-            "b": np.array([self.initial_balance], dtype=np.float32)
+            "p": self._get_closing_prices()/self.normalize_price,
+            "h": np.zeros(num_dimensions, dtype=np.float32),
+            "b": np.array([1], dtype=np.float32)
         }
 
     def set_env(self, env):
@@ -86,9 +91,9 @@ class YFBasic(gym.Env):
 
 
         self.current_state = {
-            "p": self._get_closing_prices(),
-            "h": np.zeros(num_dimensions, dtype=np.int32),
-            "b": np.array([self.initial_balance], dtype=np.float32)
+            "p": self._get_closing_prices()/self.normalize_price,
+            "h": np.zeros(num_dimensions, dtype=np.float32),
+            "b": np.array([1], dtype=np.float32)
         }
         return self._get_observation(), {}
 
@@ -99,7 +104,6 @@ class YFBasic(gym.Env):
         closing_prices = self._get_closing_prices()
         
         reward, new_state = self._get_reward(closing_prices, action)
-        reward /= self.initial_balance
 
         self.current_state = new_state
         
@@ -134,12 +138,12 @@ class YFBasic(gym.Env):
     def _get_reward(self, closing_prices, action_):
         # action fix
         action = action_ - K  # np.array([x - K for x in action_], dtype=np.int32)
-        portfolio_value = self.current_state["b"][0]  # balance left from previous day
-        initial_prices = self.current_state["p"]
-        initial_holdings = self.current_state["h"]
+        portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
+        initial_prices = self.current_state["p"] * self.normalize_price
+        initial_holdings = self.current_state["h"] * self.normalize_holdings
 
         # check if action is posible and initial portfolio value
-        balance = self.current_state["b"][0]
+        balance = self.current_state["b"][0] * self.initial_balance
         needed_to_buy = 0
         stocks_to_buy = {}
         for i in range(len(self.stock_symbols)):
@@ -163,15 +167,14 @@ class YFBasic(gym.Env):
             for i in stocks_to_buy:
                 if stocks_to_buy[i] <= 0:  # need to keep for later portfolio math
                     continue
-                stocks_to_buy[i] -= 1
-                needed_to_buy -= initial_prices[i]
-                if balance >= needed_to_buy * fixed_cost:
-                    break
+                n = min(stocks_to_buy[i], K // 100)
+                stocks_to_buy[i] -= n
+                needed_to_buy -= (initial_prices[i] * n)
         needed_to_buy *= fixed_cost
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price, dividends, stock split, etc.
         new_value = 0
-        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.int32)
+        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.float32)
         for i in range(len(self.stock_symbols)):
             if i in stocks_to_buy:
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
@@ -179,11 +182,14 @@ class YFBasic(gym.Env):
                 final_holdings[i] = max(initial_holdings[i] + action[i], 0)
             new_value += final_holdings[i] * closing_prices[i]
         reward = balance + new_value - portfolio_value
-
+        # normalize reward, holdins and prices
+        reward /= self.initial_balance
+        final_holdings /= self.normalize_holdings
+        closing_prices /= self.normalize_price
         new_state = {
             "p": closing_prices, 
             "h": final_holdings, 
-            "b": np.array([balance], dtype=np.float32)
+            "b": np.array([balance/self.initial_balance], dtype=np.float32)
         }
         return reward, new_state
     
