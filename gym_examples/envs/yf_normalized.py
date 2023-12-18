@@ -27,20 +27,20 @@ dft_data_folder = os.path.join("gym-examples", "gym_examples", "envs", "yf_data"
 dft_start_date = "2009-01-01"
 dft_end_date = "2018-09-30"
 dft_balance = 1000000.0
-dft_normalize_price = 25
-dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
+dft_normalize_holdings = dft_balance / 1000
 # Create your custom Gym environment with this action space
-class YFBasic(gym.Env):
+class YFNormalized(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
             end_date=dft_end_date, initial_balance=dft_balance):
-        super(YFBasic, self).__init__()
+        super(YFNormalized, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
         self.data_folder = data_folder
         self.start_date = start_date
         self.end_date = end_date
         self.initial_balance = np.float32(initial_balance)
-        self.normalize_price = np.float32(dft_normalize_price)
+        self.normalize_price = np.float32(0)
+        self.last_normalized_price = np.float32(0)
         self.normalize_holdings = np.float32(dft_normalize_holdings)
         self.eval_env = "train"  # train, val or test
         self.val_init_date = "2015-01-01"
@@ -66,8 +66,10 @@ class YFBasic(gym.Env):
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
             # TODO: add additional information of the state
         })
+        prices = self._get_closing_prices()
+        self.last_normalized_price = self.normalize_price
         self.current_state = {
-            "p": self._get_closing_prices()/self.normalize_price,
+            "p": prices/self.normalize_price,
             "h": np.zeros(num_dimensions, dtype=np.float32),
             "b": np.array([1], dtype=np.float32)
         }
@@ -89,9 +91,10 @@ class YFBasic(gym.Env):
                 date = data.iloc[self.current_step]["Date"]
                 done = date >= start_date
 
-
+        prices = self._get_closing_prices()
+        self.last_normalized_price = self.normalize_price
         self.current_state = {
-            "p": self._get_closing_prices()/self.normalize_price,
+            "p": prices/self.normalize_price,
             "h": np.zeros(num_dimensions, dtype=np.float32),
             "b": np.array([1], dtype=np.float32)
         }
@@ -138,7 +141,7 @@ class YFBasic(gym.Env):
         # action fix
         action = action_ - K  # np.array([x - K for x in action_], dtype=np.int32)
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
-        initial_prices = self.current_state["p"] * self.normalize_price
+        initial_prices = self.current_state["p"] * self.last_normalized_price
         initial_holdings = self.current_state["h"] * self.normalize_holdings
 
         # check if action is posible and initial portfolio value
@@ -209,7 +212,10 @@ class YFBasic(gym.Env):
                 print(self.stock_data.keys())
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
-                # closing_prices.append(0.0)
+        self.last_normalized_price = self.normalize_price
+        # NOTE: we use mean here, we can explore using the index itself as reference
+        mean = np.mean(closing_prices)
+        self.normalize_price = mean
         return np.array(closing_prices, dtype=np.float32)
 
 # # Define the stock symbols and date range
