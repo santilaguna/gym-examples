@@ -6,7 +6,7 @@ register(
 )
 
 register(
-    id="gym_examples/YFBasic-v0",
+    id="gym_examples/YFBasic",
     entry_point="gym_examples.envs:YFBasic",
     max_episode_steps=10000,
 )
