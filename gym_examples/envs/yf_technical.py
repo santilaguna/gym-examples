@@ -122,7 +122,7 @@ class YFTechnical(gym.Env):
         # Get the closing prices for the current day
         closing_prices = self._get_data("Close")
         
-        reward, new_state = self._get_reward(closing_prices, action)
+        reward, new_state = self._get_reward_and_state(closing_prices, action)
 
         self.current_state = new_state
         
@@ -147,7 +147,7 @@ class YFTechnical(gym.Env):
     def _get_observation(self):
         return self.current_state
     
-    def _get_reward(self, closing_prices, action_):
+    def _get_reward_and_state(self, closing_prices, action_):
         # action fix
         action = action_ - K  # np.array([x - K for x in action_], dtype=np.int32)
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
