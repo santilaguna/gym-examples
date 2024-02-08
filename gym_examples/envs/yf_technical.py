@@ -39,18 +39,27 @@ class YFTechnical(gym.Env):
         self.data_folder = data_folder
         self.start_date = start_date
         self.end_date = end_date
-        self.initial_balance = np.float32(initial_balance)
-        self.normalize_price = np.float32(dft_normalize_price)
-        self.normalize_holdings = np.float32(dft_normalize_holdings)
+        self.initial_balance = np.float64(initial_balance)
+        self.normalize_price = np.float64(dft_normalize_price)
+        self.normalize_holdings = np.float64(dft_normalize_holdings)
         self.transaction_cost = 0.002  # 0.2% # TODO: cost should be variable, not fixed
-        self.normalize = {
-            "rf": np.float32(0.05),
-            "MOM_1": np.float32(0.03),
-            "MOM_14": np.float32(0.1),
-            "RSI_14_exp": np.float32(50),
-            "SHARPE_RATIO": np.float32(2),
-            "VolNorm": np.float32(1),
-            "OBV_14": np.float32(0.5)
+        # self.normalize = {
+        #     "rf": np.float64(1),
+        #     "MOM_1": np.float64(1),
+        #     "MOM_14": np.float64(1),
+        #     "RSI_14_exp": np.float64(1),
+        #     "SHARPE_RATIO": np.float64(1),
+        #     "VolNorm": np.float64(1),
+        #     "OBV_14": np.float64(1)
+        # }
+        self.normalize = {  # empirical values
+            "rf": np.float64(0.011),
+            "MOM_1": np.float64(0.0005),
+            "MOM_14": np.float64(0.007),
+            "RSI_14_exp": np.float64(0.529),
+            "SHARPE_RATIO": np.float64(0.626),
+            "VolNorm": np.float64(0.989),
+            "OBV_14": np.float64(0.009)
         }
 
         # Load historical data for all stock symbols into a dictionary
@@ -67,17 +76,17 @@ class YFTechnical(gym.Env):
         self.data_cols = ["Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"]
         # Initialize the states
         self.observation_space = spaces.Dict({
-            "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "rf": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "MOM_1": spaces.Box(low=-1, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "MOM_14": spaces.Box(low=-1, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "RSI_14_exp": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float32),
-            "SHARPE_RATIO:": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "VolNorm": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "OBV_14": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float32),
+            "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "rf": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_1": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "RSI_14_exp": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "SHARPE_RATIO": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "OBV_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
-            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
-            "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
+            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
         self.current_state = {}
@@ -100,8 +109,6 @@ class YFTechnical(gym.Env):
             date = data.iloc[self.current_pos]["Date"]
             done = date >= self.start_date
         self.current_state = self.get_state_data()
-        self.current_state["h"] = np.zeros(num_dimensions, dtype=np.float32)
-        self.current_state["b"] = np.array([1], dtype=np.float32)
         return self._get_observation(), {}
 
     def get_state_data(self):
@@ -114,6 +121,8 @@ class YFTechnical(gym.Env):
             "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"],
             "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],
             "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            "h": np.zeros(num_dimensions, dtype=np.float64),
+            "b": np.array([1], dtype=np.float64)
         }
 
     def step(self, action):
@@ -132,6 +141,9 @@ class YFTechnical(gym.Env):
         
         if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
             print("wololo error")
+        for col in self.data_cols:
+            if np.isnan(new_state[col]).any():
+                print(f"error {col}")
         if np.isnan(reward):
             print("wololo 2 error")
         return new_state, reward, done, False, {}   # Additional information (if needed)
@@ -186,7 +198,7 @@ class YFTechnical(gym.Env):
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price (add variable slippage), dividends, etc.
         new_value = 0
-        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.float32)
+        final_holdings = np.zeros(len(self.stock_symbols), dtype=np.float64)
         for i in range(len(self.stock_symbols)):
             if i in stocks_to_buy:
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
@@ -199,7 +211,7 @@ class YFTechnical(gym.Env):
         final_holdings /= self.normalize_holdings
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
-        new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float32)
+        new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
         return reward, new_state
     
     def _get_info(self):
@@ -219,4 +231,4 @@ class YFTechnical(gym.Env):
                 print(self.stock_data.keys())
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
-        return np.array(attrs, dtype=np.float32)
+        return np.array(attrs, dtype=np.float64)
