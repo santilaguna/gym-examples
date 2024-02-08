@@ -44,13 +44,13 @@ class YFTechnical(gym.Env):
         self.normalize_holdings = np.float32(dft_normalize_holdings)
         self.transaction_cost = 0.002  # 0.2% # TODO: cost should be variable, not fixed
         self.normalize = {
-            "rf": 0.05,
-            "MOM_1": 0.03,
-            "MOM_14": 0.1,
-            "RSI_14_exp": 50,
-            "SHARPE_RATIO": 2,
-            "VolNorm": 1,
-            "OBV_14": 0.5
+            "rf": np.float32(0.05),
+            "MOM_1": np.float32(0.03),
+            "MOM_14": np.float32(0.1),
+            "RSI_14_exp": np.float32(50),
+            "SHARPE_RATIO": np.float32(2),
+            "VolNorm": np.float32(1),
+            "OBV_14": np.float32(0.5)
         }
 
         # Load historical data for all stock symbols into a dictionary
@@ -206,17 +206,17 @@ class YFTechnical(gym.Env):
         return {}
 
     def _get_data(self, attr):
-        closing_prices = []
+        attrs = []
         for symbol in self.stock_symbols:
             if symbol in self.stock_data:
                 data = self.stock_data[symbol]
                 if self.current_pos <= len(data):
                     closing_price = data.iloc[self.current_pos][attr]
-                    closing_prices.append(closing_price)
+                    attrs.append(closing_price)
                 else:
                     raise Exception(f"Current step {self.current_pos} is greater than data length {len(data)}")
             else:
                 print(self.stock_data.keys())
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
-        return np.array(closing_prices, dtype=np.float32)
+        return np.array(attrs, dtype=np.float32)
