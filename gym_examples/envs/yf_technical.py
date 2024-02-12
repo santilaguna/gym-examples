@@ -16,7 +16,7 @@ dft_stock_symbols = [
     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS"
 ]
-dft_data_folder = "dow_data"
+dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
 
 dft_start_date = "2009-01-01"
@@ -43,24 +43,24 @@ class YFTechnical(gym.Env):
         self.normalize_price = np.float64(dft_normalize_price)
         self.normalize_holdings = np.float64(dft_normalize_holdings)
         self.transaction_cost = 0.002  # 0.2% # TODO: cost should be variable, not fixed
-        # self.normalize = {
-        #     "rf": np.float64(1),
-        #     "MOM_1": np.float64(1),
-        #     "MOM_14": np.float64(1),
-        #     "RSI_14_exp": np.float64(1),
-        #     "SHARPE_RATIO": np.float64(1),
-        #     "VolNorm": np.float64(1),
-        #     "OBV_14": np.float64(1)
-        # }
-        self.normalize = {  # empirical values
-            "rf": np.float64(0.011),
-            "MOM_1": np.float64(0.0005),
-            "MOM_14": np.float64(0.007),
-            "RSI_14_exp": np.float64(0.529),
-            "SHARPE_RATIO": np.float64(0.626),
-            "VolNorm": np.float64(0.989),
-            "OBV_14": np.float64(0.009)
+        self.normalize = {
+            "rf": np.float64(1),
+            "MOM_1": np.float64(1),
+            "MOM_14": np.float64(1),
+            "RSI_14_exp": np.float64(1),
+            "SHARPE_RATIO": np.float64(1),
+            "VolNorm": np.float64(1),
+            "OBV_14": np.float64(1)
         }
+        # self.normalize = {  # empirical values
+        #     "rf": np.float64(0.011),
+        #     "MOM_1": np.float64(0.0005),
+        #     "MOM_14": np.float64(0.007),
+        #     "RSI_14_exp": np.float64(0.529),
+        #     "SHARPE_RATIO": np.float64(0.626),
+        #     "VolNorm": np.float64(0.989),
+        #     "OBV_14": np.float64(0.009)
+        # }
 
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
@@ -73,17 +73,19 @@ class YFTechnical(gym.Env):
                 print(f"File {file_path} not found")
                 raise FileNotFoundError(f"File {file_path} not found")
         
-        self.data_cols = ["Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"]
+        # "Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"
+        self.data_cols = ["Close", "rf", "RSI_14_exp", "SHARPE_RATIO"]
         # Initialize the states
         self.observation_space = spaces.Dict({
             "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "rf": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "MOM_1": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "MOM_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "RSI_14_exp": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "SHARPE_RATIO": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "OBV_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "MOM_1": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            # "MOM_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            # "OBV_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
             "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
@@ -115,12 +117,13 @@ class YFTechnical(gym.Env):
         return {
             "Close": self._get_data("Close")/self.normalize_price,
             "rf": self._get_data("rf") / self.normalize["rf"],
-            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            # "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
+            # "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
             "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
             "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"],
-            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],
-            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan", True),
+            # "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],
+            # "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
         }
@@ -143,6 +146,9 @@ class YFTechnical(gym.Env):
             print("wololo error")
         for col in self.data_cols:
             if np.isnan(new_state[col]).any():
+                print(self.current_state)
+                print(self.current_pos)
+                print(date)
                 print(f"error {col}")
         if np.isnan(reward):
             print("wololo 2 error")
@@ -217,14 +223,16 @@ class YFTechnical(gym.Env):
     def _get_info(self):
         return {}
 
-    def _get_data(self, attr):
+    def _get_data(self, attr, nan=False):
         attrs = []
         for symbol in self.stock_symbols:
             if symbol in self.stock_data:
                 data = self.stock_data[symbol]
                 if self.current_pos <= len(data):
-                    closing_price = data.iloc[self.current_pos][attr]
-                    attrs.append(closing_price)
+                    value = data.iloc[self.current_pos][attr]
+                    attrs.append(value)
+                    if attr == "rf":
+                        break
                 else:
                     raise Exception(f"Current step {self.current_pos} is greater than data length {len(data)}")
             else:
