@@ -73,19 +73,24 @@ class YFTechnical(gym.Env):
                 print(f"File {file_path} not found")
                 raise FileNotFoundError(f"File {file_path} not found")
         
-        # "Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"
-        self.data_cols = ["Close", "rf", "RSI_14_exp", "SHARPE_RATIO"]
+        # original: "Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"
+        # self.data_cols = ["Close", "MOM_1", "MOM_14",]
         # Initialize the states
         self.observation_space = spaces.Dict({
             "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            # TODO: test if improves normalizing prices
             "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "MOM_1": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            # "MOM_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            # "OBV_14": spaces.Box(low=-np.inf, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
             "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
@@ -117,13 +122,17 @@ class YFTechnical(gym.Env):
         return {
             "Close": self._get_data("Close")/self.normalize_price,
             "rf": self._get_data("rf") / self.normalize["rf"],
-            # "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            # "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
-            "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"],
-            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan", True),
-            # "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],
-            # "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
+            "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
+            "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
+            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
+            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            # "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
+            # "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
+            # "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan", True),
+            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
+            "VolNorm_nan": self._get_data("VolNorm_nan", True),
+            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
         }
@@ -144,12 +153,12 @@ class YFTechnical(gym.Env):
         
         if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
             print("wololo error")
-        for col in self.data_cols:
-            if np.isnan(new_state[col]).any():
-                print(self.current_state)
-                print(self.current_pos)
-                print(date)
-                print(f"error {col}")
+        # for col in self.data_cols:
+        #     if np.isnan(new_state[col]).any():
+        #         print(self.current_state)
+        #         print(self.current_pos)
+        #         print(date)
+        #         print(f"error {col}")
         if np.isnan(reward):
             print("wololo 2 error")
         return new_state, reward, done, False, {}   # Additional information (if needed)
@@ -231,7 +240,7 @@ class YFTechnical(gym.Env):
                 if self.current_pos <= len(data):
                     value = data.iloc[self.current_pos][attr]
                     attrs.append(value)
-                    if attr == "rf":
+                    if attr == "rf" or "rf_change" in attr:
                         break
                 else:
                     raise Exception(f"Current step {self.current_pos} is greater than data length {len(data)}")
