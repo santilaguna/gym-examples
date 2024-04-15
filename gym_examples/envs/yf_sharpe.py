@@ -1,3 +1,4 @@
+from functools import reduce
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -30,10 +31,10 @@ dft_balance = 1000000.0
 dft_normalize_price = 25  # 25-200
 dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
-class YFTechnical(gym.Env):
+class YFSharpe(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
             end_date=dft_end_date, initial_balance=dft_balance):
-        super(YFTechnical, self).__init__()
+        super(YFSharpe, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
         self.data_folder = data_folder
@@ -96,6 +97,8 @@ class YFTechnical(gym.Env):
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
+        self.rois = []
+        self.rfs = []
         self.current_state = {}
         self.reset()
 
@@ -115,6 +118,8 @@ class YFTechnical(gym.Env):
             self.current_pos += 1
             date = data.iloc[self.current_pos]["Date"]
             done = date >= self.start_date
+        self.rois = []
+        self.rfs = []
         self.current_state = self.get_state_data()
         return self._get_observation(), {}
 
@@ -161,6 +166,17 @@ class YFTechnical(gym.Env):
         #         print(f"error {col}")
         if np.isnan(reward):
             print("wololo 2 error")
+        # calculate total reward
+        if done:
+            reward = reduce(lambda x, y: x * (1+y), self.rois, 1)
+            reward -= 1  # total roi
+            # NOTE: if we want to return roi return reward here
+            total_rf = reduce(lambda x, y: x * (1+y), self.rfs, 1)
+            total_rf -= 1
+            # calculate std
+            std_rois = np.std(self.rois)
+            # sharpe ratio
+            reward = (reward - total_rf) / std_rois
         return new_state, reward, done, False, {}   # Additional information (if needed)
 
     def render(self):
@@ -220,31 +236,34 @@ class YFTechnical(gym.Env):
             else:
                 final_holdings[i] = max(initial_holdings[i] + action[i], 0)
             new_value += final_holdings[i] * closing_prices[i]
-        reward = balance + new_value - portfolio_value
-        # normalize reward, holdins and prices
-        reward /= self.initial_balance
+        roi = balance + new_value - portfolio_value
+        roi /= portfolio_value
+        self.rois.append(roi)
+        rf = self._get_data("rf_daily")[0]
+        self.rfs.append(rf)
+        # normalize holdins and prices
         final_holdings /= self.normalize_holdings
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
-        return reward, new_state
+        return 0, new_state
     
     def _get_info(self):
         return {}
 
-    def _get_data(self, attr, nan=False):
+    def _get_data(self, attr):
         attrs = []
         for symbol in self.stock_symbols:
             if symbol in self.stock_data:
                 data = self.stock_data[symbol]
                 if self.current_pos <= len(data):
                     value = data.iloc[self.current_pos][attr]
-                    if pd.isna(value) and self.current_pos == 0:
-                        value = 0
+                    # if pd.isna(value) and self.current_pos == 0:
+                    #     value = 0
                     attrs.append(value)
-                    if attr == "rf" or "rf_change" in attr:
-                        if pd.isna(value):
-                            attrs[-1] = 0
+                    if attr in {"rf", "rf_daily"} or "rf_change" in attr:
+                        # if pd.isna(value):
+                        #     attrs[-1] = 0
                             # print(f"{symbol} {attr} {value} {self.current_pos}")
                         break
                 else:

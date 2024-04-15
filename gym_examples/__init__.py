@@ -17,3 +17,9 @@ register(
     entry_point="gym_examples.envs:YFTechnical",
     max_episode_steps=10000,
 )
+
+register(
+    id="gym_examples/YFSharpe",
+    entry_point="gym_examples.envs:YFSharpe",
+    max_episode_steps=10000,
+)
