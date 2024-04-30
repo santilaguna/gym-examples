@@ -5,7 +5,8 @@ import numpy as np
 import os
 import pandas as pd
 
-num_dimensions = 30  
+num_dimensions = 30  # 30, 31
+
 
 K = 1000
 action_space = spaces.MultiDiscrete(
@@ -15,7 +16,7 @@ action_space = spaces.MultiDiscrete(
 dft_stock_symbols = [
     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS"
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
 ]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
@@ -53,15 +54,6 @@ class YFSharpe(gym.Env):
             "VolNorm": np.float64(1),
             "OBV_14": np.float64(1)
         }
-        # self.normalize = {  # empirical values
-        #     "rf": np.float64(0.011),
-        #     "MOM_1": np.float64(0.0005),
-        #     "MOM_14": np.float64(0.007),
-        #     "RSI_14_exp": np.float64(0.529),
-        #     "SHARPE_RATIO": np.float64(0.626),
-        #     "VolNorm": np.float64(0.989),
-        #     "OBV_14": np.float64(0.009)
-        # }
 
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
@@ -134,9 +126,9 @@ class YFSharpe(gym.Env):
             "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
             "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
             "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
-            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan", True),
+            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
             "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
-            "VolNorm_nan": self._get_data("VolNorm_nan", True),
+            "VolNorm_nan": self._get_data("VolNorm_nan"),
             "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
@@ -168,16 +160,21 @@ class YFSharpe(gym.Env):
             print("wololo 2 error")
         # calculate total reward
         if done:
+            root_power = 252 / len(self.rois)  # 252 trading days and assume len(rois) = len(rfs)
             reward = reduce(lambda x, y: x * (1+y), self.rois, 1)
-            reward -= 1  # total roi
+            reward = np.power(reward, root_power)  # no restar 1
             # NOTE: if we want to return roi return reward here
-            total_rf = reduce(lambda x, y: x * (1+y), self.rfs, 1)
-            total_rf -= 1
-            # calculate std
+            total_rf = reduce(lambda x, y: x * (1+y), self.rfs, 1)  # no restar 1
+            total_rf = np.power(total_rf, root_power)
+            # calculate std 2 years example (sqrt(pitatoria a 504) - sqrt(pitatoria 504 (rf)) / std(pitatoria 504) * sqrt(252)
             std_rois = np.std(self.rois)
+            std_rois *= np.sqrt(252)  # annualize std 
             # sharpe ratio
             reward = (reward - total_rf) / std_rois
-        return new_state, reward, done, False, {}   # Additional information (if needed)
+            # TODO:  probar si da 1.1-4 con comprar solo DOW JONES -> no se entrena
+            # TODO: Ver que esta haciendo el agente
+        info = self._get_info()
+        return new_state, reward, done, False, info  # Additional information (if needed)
 
     def render(self):
         # Render your environment (if needed)
@@ -249,7 +246,7 @@ class YFSharpe(gym.Env):
         return 0, new_state
     
     def _get_info(self):
-        return {}
+        return {}  #{"len": len(self.rois)} 
 
     def _get_data(self, attr):
         attrs = []
