@@ -76,14 +76,14 @@ class YFSharpe(gym.Env):
             # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
             "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
@@ -91,12 +91,18 @@ class YFSharpe(gym.Env):
         self.current_pos = 0
         self.rois = []
         self.rfs = []
+        self.holdings = []
+        self.current_sharpe = 0
+        self.current_annual_return = 0
+        self.log = True  # use for evaluation
         self.current_state = {}
         self.reset()
 
     def set_dates(self, start_date, end_date):
         self.start_date = start_date
         self.end_date = end_date
+        if self.log:
+            print("Dates set to:", start_date, end_date)
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -112,6 +118,7 @@ class YFSharpe(gym.Env):
             done = date >= self.start_date
         self.rois = []
         self.rfs = []
+        self.holdings = []
         self.current_state = self.get_state_data()
         return self._get_observation(), {}
 
@@ -122,14 +129,14 @@ class YFSharpe(gym.Env):
             # "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
             # "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
             # "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
-            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
-            "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
-            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
-            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
-            "VolNorm_nan": self._get_data("VolNorm_nan"),
-            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            # "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
+            # "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            # "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
+            # "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
+            # "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
+            # "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
+            # "VolNorm_nan": self._get_data("VolNorm_nan"),
+            # "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
         }
@@ -148,21 +155,21 @@ class YFSharpe(gym.Env):
         date = data.iloc[self.current_pos]["Date"]
         done = date >= self.end_date
         
-        if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
-            print("wololo error")
+        # if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
+        #     print("wololo error")
         # for col in self.data_cols:
         #     if np.isnan(new_state[col]).any():
         #         print(self.current_state)
         #         print(self.current_pos)
         #         print(date)
         #         print(f"error {col}")
-        if np.isnan(reward):
-            print("wololo 2 error")
+        # if np.isnan(reward):
+        #     print("wololo 2 error")
         # calculate total reward
         if done:
             root_power = 252 / len(self.rois)  # 252 trading days and assume len(rois) = len(rfs)
-            reward = reduce(lambda x, y: x * (1+y), self.rois, 1)
-            reward = np.power(reward, root_power)  # no restar 1
+            annual_return = reduce(lambda x, y: x * (1+y), self.rois, 1)
+            annual_return = np.power(annual_return, root_power)  # no restar 1
             # NOTE: if we want to return roi return reward here
             total_rf = reduce(lambda x, y: x * (1+y), self.rfs, 1)  # no restar 1
             total_rf = np.power(total_rf, root_power)
@@ -170,9 +177,17 @@ class YFSharpe(gym.Env):
             std_rois = np.std(self.rois)
             std_rois *= np.sqrt(252)  # annualize std 
             # sharpe ratio
-            reward = (reward - total_rf) / std_rois
-            # TODO:  probar si da 1.1-4 con comprar solo DOW JONES -> no se entrena
-            # TODO: Ver que esta haciendo el agente
+            sharpe_ratio = (annual_return - total_rf) / std_rois
+            self.current_sharpe = sharpe_ratio
+            self.current_annual_return = annual_return - 1
+            reward = sharpe_ratio
+            if self.log:
+                # custom list starts with the date
+                custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
+                custom_list += [str(self.current_pos), str(self.current_sharpe), str(self.current_annual_return)]
+                custom_str = ",".join(custom_list)
+                with open(f"custom_log.txt", "a") as f:
+                    f.write(str(custom_str) + "\n")
         info = self._get_info()
         return new_state, reward, done, False, info  # Additional information (if needed)
 
@@ -238,7 +253,16 @@ class YFSharpe(gym.Env):
         self.rois.append(roi)
         rf = self._get_data("rf_daily")[0]
         self.rfs.append(rf)
-        # normalize holdins and prices
+        # log info
+        self.holdings = [x for x in final_holdings]
+        if self.log:
+            # custom list starts with the date
+            custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
+            custom_list += [str(x) for x in final_holdings]
+            custom_str = ",".join(custom_list)
+            with open(f"custom_log.txt", "a") as f:
+                f.write(str(custom_str) + "\n")
+        # normalize holdings and prices
         final_holdings /= self.normalize_holdings
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
@@ -246,7 +270,12 @@ class YFSharpe(gym.Env):
         return 0, new_state
     
     def _get_info(self):
-        return {}  #{"len": len(self.rois)} 
+        return {
+            "holdings": self.holdings,
+            "sharpe_ratio": self.current_sharpe,
+            "annual_return": self.current_annual_return,
+            "pos": self.current_pos
+        }
 
     def _get_data(self, attr):
         attrs = []
