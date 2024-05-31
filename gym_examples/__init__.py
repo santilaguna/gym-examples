@@ -23,3 +23,9 @@ register(
     entry_point="gym_examples.envs:YFSharpe",
     max_episode_steps=10000,
 )
+
+register(
+    id="gym_examples/YF30",
+    entry_point="gym_examples.envs:YF30",
+    max_episode_steps=10000,
+)

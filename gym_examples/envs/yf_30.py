@@ -5,19 +5,17 @@ import numpy as np
 import os
 import pandas as pd
 
-num_dimensions = 1 #30  # 30, 31
+num_dimensions = 30  # 30, 31
 
 
 K = 1000
-action_space = spaces.MultiDiscrete(
-    np.array([2*K + 1 for i in range(num_dimensions)]), 
-    dtype=np.int32)
+action_space = spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
 
-dft_stock_symbols = ["MMM"]
-#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
-# ]
+dft_stock_symbols = [  #"MMM"]
+    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
+]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
 
@@ -32,10 +30,10 @@ dft_balance = 1000000.0
 dft_normalize_price = 25  # 25-200
 dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
-class YFSharpe(gym.Env):
+class YF30(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
             end_date=dft_end_date, initial_balance=dft_balance):
-        super(YFSharpe, self).__init__()
+        super(YF30, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
         self.data_folder = data_folder
@@ -204,7 +202,7 @@ class YFSharpe(gym.Env):
     
     def _get_reward_and_state(self, closing_prices, action_):
         # action fix
-        action = action_ - K  # np.array([x - K for x in action_], dtype=np.int32)
+        action = np.array([round(x*K) for x in action_], dtype=np.int32)
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
         initial_prices = self.current_state["Close"] * self.normalize_price
         initial_holdings = self.current_state["h"] * self.normalize_holdings
