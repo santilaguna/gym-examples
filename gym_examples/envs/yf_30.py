@@ -4,12 +4,13 @@ from gymnasium import spaces
 import numpy as np
 import os
 import pandas as pd
+import math
 
-num_dimensions = 30  # 30, 31
+num_dimensions = 30  #1, 31
 
-
-K = 1000
-action_space = spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
+STEP_SIZE = 1 #1
+K = 10000  # 1000 if 1 trading day for 0.2% commission
+action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
 dft_stock_symbols = [  #"MMM"]
     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
@@ -68,31 +69,32 @@ class YF30(gym.Env):
         # self.data_cols = ["Close", "MOM_1", "MOM_14",]
         # Initialize the states
         self.observation_space = spaces.Dict({
-            "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            # TODO: test if improves normalizing prices
+            # "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            # # TODO: test if improves normalizing prices
             # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
-            "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            # "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
         self.rois = []
         self.rfs = []
         self.holdings = []
+        self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.log = False  # use for evaluation
+        self.log = True  # use for evaluation
         self.current_state = {}
         self.reset()
 
@@ -111,9 +113,10 @@ class YF30(gym.Env):
         date = data.iloc[self.current_pos]["Date"]
         done = date >= self.start_date
         while not done:
-            self.current_pos += 1
+            self.current_pos += STEP_SIZE
             date = data.iloc[self.current_pos]["Date"]
             done = date >= self.start_date
+        self.invalid_actions = 0
         self.rois = []
         self.rfs = []
         self.holdings = []
@@ -123,25 +126,28 @@ class YF30(gym.Env):
     def get_state_data(self):
         return {
             "Close": self._get_data("Close")/self.normalize_price,
-            # "rf": self._get_data("rf") / self.normalize["rf"],
-            # "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
-            # "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
-            # "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
-            # "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            # "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            # "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
-            # "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
-            # "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
-            # "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
-            # "VolNorm_nan": self._get_data("VolNorm_nan"),
-            # "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            "rf": self._get_data("rf") / self.normalize["rf"],
+            "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
+            "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
+            "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
+            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
+            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            # /#"RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
+            # /#"SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
+            # /#"SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
+            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
+            "VolNorm_nan": self._get_data("VolNorm_nan"),
+            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
         }
 
     def step(self, action):
         # go next trading day to calculate reward
-        self.current_pos += 1
+        self.current_pos += STEP_SIZE
+        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
+            self.rois.append(0)
+            self.rfs.append(0)
         # Get the closing prices for the current day
         closing_prices = self._get_data("Close")
         
@@ -151,7 +157,7 @@ class YF30(gym.Env):
         
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
         date = data.iloc[self.current_pos]["Date"]
-        done = date >= self.end_date
+        done = date >= self.end_date or self.invalid_actions > 5  # 5 invalid actions
         
         # if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
         #     print("wololo error")
@@ -173,21 +179,27 @@ class YF30(gym.Env):
             total_rf = np.power(total_rf, root_power)
             # calculate std 2 years example (sqrt(pitatoria a 504) - sqrt(pitatoria 504 (rf)) / std(pitatoria 504) * sqrt(252)
             std_rois = np.std(self.rois)
-            std_rois *= np.sqrt(252)  # annualize std 
+            std_rois *= np.sqrt(252)  # annualize std
             # sharpe ratio
-            sharpe_ratio = (annual_return - total_rf) / std_rois
+            if std_rois == 0:
+                sharpe_ratio = 0
+            else:
+                sharpe_ratio = (annual_return - total_rf) / std_rois
             self.current_sharpe = sharpe_ratio
             self.current_annual_return = annual_return - 1
-            reward = sharpe_ratio
+            # reward = sharpe_ratio
+            reward = annual_return - 1
             if self.log:
                 # custom list starts with the date
                 custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
-                custom_list += [str(self.current_pos), str(self.current_sharpe), str(self.current_annual_return)]
+                custom_list += [str(self.current_pos), f"SR:{str(self.current_sharpe)}",
+                    f"AR:{str(self.current_annual_return)}"]
                 custom_str = ",".join(custom_list)
                 with open(f"custom_log.txt", "a") as f:
                     f.write(str(custom_str) + "\n")
         info = self._get_info()
-        return new_state, reward, done, False, info  # Additional information (if needed)
+        ret_state = self._get_observation()
+        return ret_state, reward, done, False, info  # Additional information (if needed)
 
     def render(self):
         # Render your environment (if needed)
@@ -198,11 +210,17 @@ class YF30(gym.Env):
         pass
 
     def _get_observation(self):
-        return self.current_state
+        # return self.current_state
+        return {"b": np.array([1], dtype=np.float64)}  # NOTE: ultra basic state
+        # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
+        # return ret_state
     
     def _get_reward_and_state(self, closing_prices, action_):
         # action fix
-        action = np.array([round(x*K) for x in action_], dtype=np.int32)
+        #action = [round(x*K) for x in action_]
+        # new action fix
+        action = [round(K*x) for x in action_]
+
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
         initial_prices = self.current_state["Close"] * self.normalize_price
         initial_holdings = self.current_state["h"] * self.normalize_holdings
@@ -227,14 +245,20 @@ class YF30(gym.Env):
             else:  # hold
                 pass
         fixed_cost = 1 + self.transaction_cost
+
         while balance < needed_to_buy * fixed_cost:
             # TODO: find a better way to reduce the number of stocks to buy
             for i in stocks_to_buy:
                 if stocks_to_buy[i] <= 0:  # need to keep for later portfolio math
                     continue
-                n = min(stocks_to_buy[i], K // 100)
+                n = min(stocks_to_buy[i], K//100)
                 stocks_to_buy[i] -= n
                 needed_to_buy -= (initial_prices[i] * n)
+        # if balance < needed_to_buy * fixed_cost:
+        #     self.invalid_actions += 1
+        #     self.current_pos -= 1
+        #     return -0.1, self.current_state
+
         needed_to_buy *= fixed_cost
         balance -= needed_to_buy
         # TODO: consider we assume we always can buy at close price (add variable slippage), dividends, etc.
@@ -258,6 +282,7 @@ class YF30(gym.Env):
             custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
             custom_list += [str(x) for x in final_holdings]
             custom_str = ",".join(custom_list)
+            custom_str += f"{str(action_)}-{str(action)}\n"
             with open(f"custom_log.txt", "a") as f:
                 f.write(str(custom_str) + "\n")
         # normalize holdings and prices
@@ -297,3 +322,4 @@ class YF30(gym.Env):
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
         return np.array(attrs, dtype=np.float64)
+    # TODO: USE Adj Close instead of Close

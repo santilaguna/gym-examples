@@ -13,11 +13,11 @@ action_space = spaces.MultiDiscrete(
     np.array([2*K + 1 for i in range(num_dimensions)]), 
     dtype=np.int32)
 
-dft_stock_symbols = ["MMM"]
-#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
-# ]
+dft_stock_symbols = [ #"MMM"]
+    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
+]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
 
@@ -72,18 +72,18 @@ class YFSharpe(gym.Env):
         self.observation_space = spaces.Dict({
             "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves normalizing prices
-            # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
             "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
@@ -94,7 +94,7 @@ class YFSharpe(gym.Env):
         self.holdings = []
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.log = False  # use for evaluation
+        self.log = True  # use for evaluation
         self.current_state = {}
         self.reset()
 
@@ -125,18 +125,18 @@ class YFSharpe(gym.Env):
     def get_state_data(self):
         return {
             "Close": self._get_data("Close")/self.normalize_price,
-            # "rf": self._get_data("rf") / self.normalize["rf"],
+            "rf": self._get_data("rf") / self.normalize["rf"],
             # "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
             # "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
             # "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
-            # "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            # "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            # "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
-            # "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
-            # "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
-            # "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
-            # "VolNorm_nan": self._get_data("VolNorm_nan"),
-            # "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
+            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
+            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            "RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
+            "SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
+            "SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
+            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
+            "VolNorm_nan": self._get_data("VolNorm_nan"),
+            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
             "h": np.zeros(num_dimensions, dtype=np.float64),
             "b": np.array([1], dtype=np.float64)
         }
@@ -184,7 +184,8 @@ class YFSharpe(gym.Env):
             if self.log:
                 # custom list starts with the date
                 custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
-                custom_list += [str(self.current_pos), str(self.current_sharpe), str(self.current_annual_return)]
+                custom_list += [str(self.current_pos), f"SR:{str(self.current_sharpe)}",
+                    f"TR:{str(self.current_annual_return)}"]
                 custom_str = ",".join(custom_list)
                 with open(f"custom_log.txt", "a") as f:
                     f.write(str(custom_str) + "\n")
