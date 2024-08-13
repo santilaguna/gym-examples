@@ -8,7 +8,7 @@ import math
 
 num_dimensions = 30  #1, 31
 
-STEP_SIZE = 1 #1
+STEP_SIZE = 21 #1
 K = 10000  # 1000 if 1 trading day for 0.2% commission
 action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
@@ -83,9 +83,9 @@ class YF30(gym.Env):
             # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # TODO: test if improves removing holdings and balance from state
-            "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
+            # "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
         self.rois = []
@@ -143,11 +143,6 @@ class YF30(gym.Env):
         }
 
     def step(self, action):
-        # go next trading day to calculate reward
-        self.current_pos += STEP_SIZE
-        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
-            self.rois.append(0)
-            self.rfs.append(0)
         # Get the closing prices for the current day
         closing_prices = self._get_data("Close")
         
@@ -169,6 +164,13 @@ class YF30(gym.Env):
         #         print(f"error {col}")
         # if np.isnan(reward):
         #     print("wololo 2 error")
+        
+        # go next trading day to calculate reward
+        self.current_pos += STEP_SIZE
+        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
+            self.rois.append(0)
+            self.rfs.append(0)
+
         # calculate total reward
         if done:
             root_power = 252 / len(self.rois)  # 252 trading days and assume len(rois) = len(rfs)
@@ -210,18 +212,18 @@ class YF30(gym.Env):
         pass
 
     def _get_observation(self):
-        # FULL STATE
+        # NOTE: FULL STATE
         # return self.current_state
-        # ULTRA BASIC STATE
-        # return {"b": np.array([1], dtype=np.float64)}
-        # ULTRA EASY STATE
-        future_prices = self._get_data("Close", STEP_SIZE)
-        current_prices = self._get_data("Close")
-        previous_prices = self._get_data("Close", -STEP_SIZE)
-        x = [(future_prices[i] > current_prices[i]) for i in range(len(self.stock_symbols))]
-        x = [1 if y else -1 for y in x]
-        prev_x = [(current_prices[i] > previous_prices[i]) for i in range(len(self.stock_symbols))]
-        prev_x = [1 if y else -1 for y in prev_x]
+        # NOTE: ULTRA BASIC STATE
+        return {"b": np.array([1], dtype=np.float64)}
+        # NOTE: ULTRA EASY STATE
+        # future_prices = self._get_data("Close", STEP_SIZE)
+        # current_prices = self._get_data("Close")
+        # previous_prices = self._get_data("Close", -STEP_SIZE)
+        # x = [(future_prices[i] > current_prices[i]) for i in range(len(self.stock_symbols))]
+        # x = [1 if y else -1 for y in x]
+        # prev_x = [(current_prices[i] > previous_prices[i]) for i in range(len(self.stock_symbols))]
+        # prev_x = [1 if y else -1 for y in prev_x]
         # ULTRA EASY ALTERNATIVES
         # alt 1, only tops and bottoms
         # aux = []
@@ -230,10 +232,10 @@ class YF30(gym.Env):
         #         aux.append(0)
         #     else:
         #         aux.append(x[i])
-        # alt 2, proportional to choose best stock?
+        # alt 2, proportional to choose best stock
         #x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
-        return {"h": np.array(x, dtype=np.float64)}
-        # SELECT SOME FEATURES
+        # return {"h": np.array(x, dtype=np.float64)}
+        # NOTE: SELECT SOME FEATURES
         # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
         # return ret_state
     
