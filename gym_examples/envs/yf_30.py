@@ -84,8 +84,8 @@ class YF30(gym.Env):
             # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
-            # "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
+            "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
         self.rois = []
@@ -94,7 +94,7 @@ class YF30(gym.Env):
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.log = True  # use for evaluation
+        self.log = False  # use for evaluation
         self.current_state = {}
         self.reset()
 
@@ -210,8 +210,30 @@ class YF30(gym.Env):
         pass
 
     def _get_observation(self):
+        # FULL STATE
         # return self.current_state
-        return {"b": np.array([1], dtype=np.float64)}  # NOTE: ultra basic state
+        # ULTRA BASIC STATE
+        # return {"b": np.array([1], dtype=np.float64)}
+        # ULTRA EASY STATE
+        future_prices = self._get_data("Close", STEP_SIZE)
+        current_prices = self._get_data("Close")
+        previous_prices = self._get_data("Close", -STEP_SIZE)
+        x = [(future_prices[i] > current_prices[i]) for i in range(len(self.stock_symbols))]
+        x = [1 if y else -1 for y in x]
+        prev_x = [(current_prices[i] > previous_prices[i]) for i in range(len(self.stock_symbols))]
+        prev_x = [1 if y else -1 for y in prev_x]
+        # ULTRA EASY ALTERNATIVES
+        # alt 1, only tops and bottoms
+        # aux = []
+        # for i in range(len(self.stock_symbols)):
+        #     if x[i] == prev_x[i]:  # keep trend no need to buy or sell again
+        #         aux.append(0)
+        #     else:
+        #         aux.append(x[i])
+        # alt 2, proportional to choose best stock?
+        #x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
+        return {"h": np.array(x, dtype=np.float64)}
+        # SELECT SOME FEATURES
         # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
         # return ret_state
     
@@ -300,13 +322,13 @@ class YF30(gym.Env):
             "pos": self.current_pos
         }
 
-    def _get_data(self, attr):
+    def _get_data(self, attr, future=0):
         attrs = []
         for symbol in self.stock_symbols:
             if symbol in self.stock_data:
                 data = self.stock_data[symbol]
                 if self.current_pos <= len(data):
-                    value = data.iloc[self.current_pos][attr]
+                    value = data.iloc[self.current_pos + future][attr]
                     # if pd.isna(value) and self.current_pos == 0:
                     #     value = 0
                     attrs.append(value)
