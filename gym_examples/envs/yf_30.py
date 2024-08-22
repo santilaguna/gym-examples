@@ -9,7 +9,7 @@ import math
 num_dimensions = 1#30  #1, 31
 
 STEP_SIZE = 1 #1
-K = 10000  # 1000 if 1 trading day for 0.2% commission
+K = 15000  # 1000 if 1 trading day for 0.2% commission
 action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
 dft_stock_symbols = [  "MMM"]
@@ -28,8 +28,8 @@ dft_end_date = "2015-01-01"
 # test end = "2018-09-30"
 
 dft_balance = 1000000.0
-dft_normalize_price = 25  # 25-200
-dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
+dft_normalize_price = 1  #25  # 25-200
+dft_normalize_holdings = 1  #dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
 class YF30(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
@@ -90,7 +90,7 @@ class YF30(gym.Env):
         self.current_pos = 0
         self.rois = []
         self.rfs = []
-        self.holdings = []
+        self.holdings = [0 for _ in range(num_dimensions)]
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
@@ -119,7 +119,7 @@ class YF30(gym.Env):
         self.invalid_actions = 0
         self.rois = []
         self.rfs = []
-        self.holdings = []
+        self.holdings = [0 for _ in range(num_dimensions)]
         self.current_state = self.get_state_data()
         return self._get_observation(), {}
 
@@ -143,11 +143,7 @@ class YF30(gym.Env):
         }
 
     def step(self, action):
-        # Get the closing prices for the current day
-        closing_prices = self._get_data("Close")
-        
-        reward, new_state = self._get_reward_and_state(closing_prices, action)
-
+        reward, new_state = self._get_reward_and_state(action)
         self.current_state = new_state
         
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
@@ -217,10 +213,20 @@ class YF30(gym.Env):
         # ULTRA BASIC STATE
         # return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
-        future_prices = self._get_data("Close", STEP_SIZE) * (1 - self.transaction_cost)
+        fixed_up = (1 + self.transaction_cost)
+        fixed_down = (1 - self.transaction_cost)
+        future_prices = self._get_data("Close", STEP_SIZE)
         current_prices = self._get_data("Close")
-        previous_prices = self._get_data("Close", -STEP_SIZE)
-        x = [(future_prices[i] > current_prices[i]) for i in range(len(self.stock_symbols))]
+        # previous_prices = self._get_data("Close", -STEP_SIZE)
+        x = []
+        for i in range(len(self.stock_symbols)):
+            if future_prices[i] * fixed_up > current_prices[i]:
+                x.append(1.0)
+            elif future_prices[i] * fixed_down < current_prices[i]:
+                x.append(-1.0)
+            else:
+                x.append(0.0)
+        x = [(future_prices[i] * fixed_up > current_prices[i]) for i in range(len(self.stock_symbols))]
         x = [1.0 if y else -1.0 for y in x]
         # ULTRA EASY ALTERNATIVES
         # alt 1, only tops and bottoms
@@ -239,18 +245,22 @@ class YF30(gym.Env):
         # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
         # return ret_state
     
-    def _get_reward_and_state(self, closing_prices, action_):
+    def _get_reward_and_state(self, action_):
         # action fix
         #action = [round(x*K) for x in action_]
         # new action fix
         action = [round(K*x) for x in action_]
 
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
-        initial_prices = self.current_state["Close"] * self.normalize_price
+        initial_prices = self._get_data("Close") * self.normalize_price
         initial_holdings = self.current_state["h"] * self.normalize_holdings
 
         # check if action is posible and initial portfolio value
         balance = self.current_state["b"][0] * self.initial_balance
+        # print("initial balance", balance)
+        # print("initial holdings", initial_holdings)
+        # print("initial prices", initial_prices)
+        # print("prices", self._get_data("Close"))
         needed_to_buy = 0
         stocks_to_buy = {}
         fixed_cost = 1 - self.transaction_cost
@@ -269,7 +279,8 @@ class YF30(gym.Env):
             else:  # hold
                 pass
         fixed_cost = 1 + self.transaction_cost
-
+        # print("needed to buy", needed_to_buy * fixed_cost)
+        # print("after sell balance", balance)
         while balance < needed_to_buy * fixed_cost:
             # TODO: find a better way to reduce the number of stocks to buy
             for i in stocks_to_buy:
@@ -285,9 +296,12 @@ class YF30(gym.Env):
 
         needed_to_buy *= fixed_cost
         balance -= needed_to_buy
+        # print("new balance", balance)
         # TODO: consider we assume we always can buy at close price (add variable slippage), dividends, etc.
         new_value = 0
         final_holdings = np.zeros(len(self.stock_symbols), dtype=np.float64)
+                # Get the closing prices for the current day
+        closing_prices = self._get_data("Close", STEP_SIZE)
         for i in range(len(self.stock_symbols)):
             if i in stocks_to_buy:
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
@@ -316,12 +330,18 @@ class YF30(gym.Env):
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
         return 0, new_state
     
+    def get_info(self):
+        return self._get_info()
+    
     def _get_info(self):
         return {
             "holdings": self.holdings,
+            "balance": self.current_state["b"][0] * self.initial_balance,
             "sharpe_ratio": self.current_sharpe,
             "annual_return": self.current_annual_return,
-            "pos": self.current_pos
+            "pos": self.current_pos,
+            "date": self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"],
+            "prices": self._get_data("Close"),
         }
 
     def _get_data(self, attr, future=0):
