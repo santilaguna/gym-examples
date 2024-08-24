@@ -213,11 +213,11 @@ class YF30(gym.Env):
         # ULTRA BASIC STATE
         # return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
-        fixed_up = (1 + self.transaction_cost)
-        fixed_down = (1 - self.transaction_cost)
         future_prices = self._get_data("Close", STEP_SIZE)
         current_prices = self._get_data("Close")
         # previous_prices = self._get_data("Close", -STEP_SIZE)
+        fixed_up = (1 + self.transaction_cost)
+        fixed_down = (1 - self.transaction_cost)
         x = []
         for i in range(len(self.stock_symbols)):
             if future_prices[i] * fixed_up > current_prices[i]:
@@ -226,20 +226,9 @@ class YF30(gym.Env):
                 x.append(-1.0)
             else:
                 x.append(0.0)
-        x = [(future_prices[i] * fixed_up > current_prices[i]) for i in range(len(self.stock_symbols))]
-        x = [1.0 if y else -1.0 for y in x]
         # ULTRA EASY ALTERNATIVES
-        # alt 1, only tops and bottoms
-        # prev_x = [(current_prices[i] > previous_prices[i]) for i in range(len(self.stock_symbols))]
-        # prev_x = [1 if y else -1 for y in prev_x]
-        # aux = []
-        # for i in range(len(self.stock_symbols)):
-        #     if x[i] == prev_x[i]:  # keep trend no need to buy or sell again
-        #         aux.append(0)
-        #     else:
-        #         aux.append(x[i])
-        # alt 2, proportional to choose best stock?
-        #x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
+        # alt 1 proportional to choose best stock?
+        # x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
         return {"h": np.array(x, dtype=np.float64)}
         # SELECT SOME FEATURES
         # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
@@ -328,7 +317,7 @@ class YF30(gym.Env):
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
-        return 0, new_state
+        return roi, new_state  # NOTE: train roi, new_state / eval 0, new_state
     
     def get_info(self):
         return self._get_info()
