@@ -6,17 +6,17 @@ import os
 import pandas as pd
 import math
 
-num_dimensions = 1#30  #1, 31
+num_dimensions = 30 #30  #1, 31
 
 STEP_SIZE = 1 #1
 K = 15000  # 1000 if 1 trading day for 0.2% commission
 action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
-dft_stock_symbols = [  "MMM"]
-#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
-# ]
+dft_stock_symbols = [  #"MMM"]
+    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
+]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
 
@@ -71,20 +71,17 @@ class YF30(gym.Env):
         self.observation_space = spaces.Dict({
             # "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # # TODO: test if improves normalizing prices
-            # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # # /#"RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # # /#"SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # # /#"SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: test if improves removing holdings and balance from state
-            "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
@@ -132,9 +129,6 @@ class YF30(gym.Env):
             "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
             "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
             "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            # /#"RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
-            # /#"SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
-            # /#"SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
             "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
             "VolNorm_nan": self._get_data("VolNorm_nan"),
             "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
@@ -197,6 +191,9 @@ class YF30(gym.Env):
                     f.write(str(custom_str) + "\n")
         info = self._get_info()
         ret_state = self._get_observation()
+        # Make sure reward is not nan
+        if np.isnan(reward):
+            reward = 0
         return ret_state, reward, done, False, info  # Additional information (if needed)
 
     def render(self):
@@ -213,31 +210,33 @@ class YF30(gym.Env):
         # ULTRA BASIC STATE
         # return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
-        future_prices = self._get_data("Close", STEP_SIZE)
-        current_prices = self._get_data("Close")
-        # previous_prices = self._get_data("Close", -STEP_SIZE)
-        fixed_up = (1 + self.transaction_cost)
-        fixed_down = (1 - self.transaction_cost)
-        x = []
-        for i in range(len(self.stock_symbols)):
-            if future_prices[i] * fixed_up > current_prices[i]:
-                x.append(1.0)
-            elif future_prices[i] * fixed_down < current_prices[i]:
-                x.append(-1.0)
-            else:
-                x.append(0.0)
+        # future_prices = self._get_data("Close", STEP_SIZE)
+        # current_prices = self._get_data("Close")
+        # # previous_prices = self._get_data("Close", -STEP_SIZE)
+        # fixed_up = (1 + self.transaction_cost)
+        # fixed_down = (1 - self.transaction_cost)
+        # x = []
+        # for i in range(len(self.stock_symbols)):
+        #     if future_prices[i] * fixed_up > current_prices[i]:
+        #         x.append(1.0)
+        #     elif future_prices[i] * fixed_down < current_prices[i]:
+        #         x.append(-1.0)
+        #     else:
+        #         x.append(0.0)
         # ULTRA EASY ALTERNATIVES
         # alt 1 proportional to choose best stock?
         # x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
-        return {"h": np.array(x, dtype=np.float64)}
+        # return {"h": np.array(x, dtype=np.float64)}
         # SELECT SOME FEATURES
-        # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
-        # return ret_state
+        ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
+        # ALL: check there are no nan values
+        for k, v in ret_state.items():
+            if np.isnan(v).any():  # replace nan with 0
+                ret_state[k] = np.nan_to_num(v)
+        return ret_state
     
     def _get_reward_and_state(self, action_):
         # action fix
-        #action = [round(x*K) for x in action_]
-        # new action fix
         action = [round(K*x) for x in action_]
 
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
@@ -355,4 +354,3 @@ class YF30(gym.Env):
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
         return np.array(attrs, dtype=np.float64)
-    # TODO: USE Adj Close instead of Close
