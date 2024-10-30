@@ -6,10 +6,10 @@ import os
 import pandas as pd
 import math
 
-num_dimensions = 30 #30  #1, 31
+num_dimensions = 30  #1, 31
 
 STEP_SIZE = 1 #1
-K = 1000  # 1000 if 1 trading day for 0.2% commission
+K = 10000  # 1000 if 1 trading day for 0.2% commission
 action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
 dft_stock_symbols = [  #"MMM"]
@@ -20,16 +20,18 @@ dft_stock_symbols = [  #"MMM"]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
 
-dft_start_date = "2009-01-01"
-dft_end_date = "2015-01-01"
+# dft_start_date = "2009-01-01"
+# dft_end_date = "2015-01-01"
 # train start = "2009-01-01"
 # val_init_date = "2015-01-01"
 # test_init_date = "2016-01-01"
 # test end = "2018-09-30"
+dft_start_date = "2016-01-01"
+dft_end_date = "2018-09-30"
 
 dft_balance = 1000000.0
-dft_normalize_price = 1  #25  # 25-200
-dft_normalize_holdings = 1  #dft_balance / (30 * dft_normalize_price)
+dft_normalize_price = 25  # 25-200
+dft_normalize_holdings = dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
 class YF30(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
@@ -71,30 +73,32 @@ class YF30(gym.Env):
         self.observation_space = spaces.Dict({
             # "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # # TODO: test if improves normalizing prices
-            "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # TODO: show if it improves removing holdings and balance from state
-            # "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
-            #"b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
-
+            # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"RSI_14_exp": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"SHARPE_RATIO": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # # /#"SHARPE_RATIO_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # TODO: test if improves removing holdings and balance from state
+            # "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float64)
         })
         self.current_pos = 0
         self.rois = []
         self.rfs = []
-        self.holdings = [0 for _ in range(num_dimensions)]
+        self.holdings = []
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.eval = True    # use for evaluation
-        self.log = self.eval
+        self.current_portfolio_value = self.initial_balance
+        self.holdings_tan = []
+        self.log = True  # use for evaluation
         self.current_state = {}
         self.reset()
 
@@ -119,7 +123,9 @@ class YF30(gym.Env):
         self.invalid_actions = 0
         self.rois = []
         self.rfs = []
-        self.holdings = [0 for _ in range(num_dimensions)]
+        self.holdings = []
+        self.current_portfolio_value = self.initial_balance
+        self.holdings_tan = []
         self.current_state = self.get_state_data()
         return self._get_observation(), {}
 
@@ -132,6 +138,9 @@ class YF30(gym.Env):
             "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
             "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
             "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
+            # /#"RSI_14_exp": self._get_data("RSI_14_exp") / self.normalize["RSI_14_exp"],
+            # /#"SHARPE_RATIO": self._get_data("SHARPE_RATIO") / self.normalize["SHARPE_RATIO"], #need nan
+            # /#"SHARPE_RATIO_nan": self._get_data("SHARPE_RATIO_nan"),
             "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
             "VolNorm_nan": self._get_data("VolNorm_nan"),
             "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
@@ -140,7 +149,16 @@ class YF30(gym.Env):
         }
 
     def step(self, action):
-        reward, new_state = self._get_reward_and_state(action)
+        # go next trading day to calculate reward
+        self.current_pos += STEP_SIZE
+        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
+            self.rois.append(0)
+            self.rfs.append(0)
+        # Get the closing prices for the current day
+        closing_prices = self._get_data("Close")
+        
+        reward, new_state = self._get_reward_and_state(closing_prices, action)
+
         self.current_state = new_state
         
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
@@ -157,13 +175,6 @@ class YF30(gym.Env):
         #         print(f"error {col}")
         # if np.isnan(reward):
         #     print("wololo 2 error")
-
-        # go next trading day to calculate reward
-        self.current_pos += STEP_SIZE
-        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
-            self.rois.append(0)
-            self.rfs.append(0)
-
         # calculate total reward
         if done:
             root_power = 252 / len(self.rois)  # 252 trading days and assume len(rois) = len(rfs)
@@ -173,7 +184,7 @@ class YF30(gym.Env):
             total_rf = reduce(lambda x, y: x * (1+y), self.rfs, 1)  # no restar 1
             total_rf = np.power(total_rf, root_power)
             # calculate std 2 years example (sqrt(pitatoria a 504) - sqrt(pitatoria 504 (rf)) / std(pitatoria 504) * sqrt(252)
-            std_rois = np.std(self.rois)
+            std_rois = np.std(self.rois)  # TODO: fix this rois are normalized and shouldn't be
             std_rois *= np.sqrt(252)  # annualize std
             # sharpe ratio
             if std_rois == 0:
@@ -187,16 +198,14 @@ class YF30(gym.Env):
             if self.log:
                 # custom list starts with the date
                 custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
-                custom_list += [str(self.current_pos), f"SR:{str(self.current_sharpe)}",
-                    f"AR:{str(self.current_annual_return)}"]
+                custom_list += [str(self.current_pos), f"AR:{str(self.current_annual_return)}"]
+                # f"SR:{str(self.current_sharpe)}",
                 custom_str = ",".join(custom_list)
                 with open(f"custom_log.txt", "a") as f:
                     f.write(str(custom_str) + "\n")
+                    # f.write(str(self.rois))
         info = self._get_info()
         ret_state = self._get_observation()
-        # Make sure reward is not nan
-        if np.isnan(reward):
-            reward = 0
         return ret_state, reward, done, False, info  # Additional information (if needed)
 
     def render(self):
@@ -208,142 +217,123 @@ class YF30(gym.Env):
         pass
 
     def _get_observation(self):
-        # FULL STATE
         # return self.current_state
-        # ULTRA BASIC STATE
-        # return {"b": np.array([1], dtype=np.float64)}
-        # ULTRA EASY STATE
-        # future_prices = self._get_data("Close", STEP_SIZE)
-        # current_prices = self._get_data("Close")
-        # # previous_prices = self._get_data("Close", -STEP_SIZE)
-        # fixed_up = (1 + self.transaction_cost)
-        # fixed_down = (1 - self.transaction_cost)
-        # x = []
-        # for i in range(len(self.stock_symbols)):
-        #     if future_prices[i] * fixed_up > current_prices[i]:
-        #         x.append(1.0)
-        #     elif future_prices[i] * fixed_down < current_prices[i]:
-        #         x.append(-1.0)
-        #     else:
-        #         x.append(0.0)
-        # ULTRA EASY ALTERNATIVES
-        # alt 1 proportional to choose best stock?
-        # x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
-        # return {"h": np.array(x, dtype=np.float64)}
-        # SELECT SOME FEATURES
-        ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
-        # ALL: check there are no nan values
-        for k, v in ret_state.items():
-            if np.isnan(v).any():  # replace nan with 0
-                ret_state[k] = np.nan_to_num(v)
-        return ret_state
+        return {"b": np.array([1], dtype=np.float64)}  # NOTE: ultra basic state
+        # ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
+        # return ret_state
     
-    def _get_reward_and_state(self, action_):
-        # action fix
-        action = [round(K*x) for x in action_]
-
+    def _get_reward_and_state(self, closing_prices, action_):
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
-        initial_prices = self._get_data("Close") * self.normalize_price
+        initial_prices = self.current_state["Close"] * self.normalize_price
         initial_holdings = self.current_state["h"] * self.normalize_holdings
+
+        # action fix
+        #action = [round(x*K) for x in action_]
+        # NOTE: for tangency portfolio
+        amount_to_invest = [self.initial_balance * x for x in action_]
+        if not self.holdings_tan:
+            action = [round(x / initial_prices[i]) for i, x in enumerate(amount_to_invest)]
+            self.holdings_tan = action
+            print(self.holdings_tan)
+            # Stocks to Buy: [-18160, -2528, -1111, 1817, 7571, -1071, -1997, -3579, 1647, 908, -3557, 1792, -1189, 3516, 790, -906, 6146, -2691, -2037, -1052, -2667, 1546, 4549, 3724, -2293, -2109, -2614, 3660, 23722, 12116]
+        else:
+            action = self.holdings_tan
 
         # check if action is posible and initial portfolio value
         balance = self.current_state["b"][0] * self.initial_balance
-        # print("initial balance", balance)
-        # print("initial holdings", initial_holdings)
-        # print("initial prices", initial_prices)
-        # print("prices", self._get_data("Close"))
         needed_to_buy = 0
         stocks_to_buy = {}
         fixed_cost = 1 - self.transaction_cost
+        portfolio_value = 0  # NOTE: tangency
         for i in range(len(self.stock_symbols)):
-            portfolio_value += initial_holdings[i] * initial_prices[i]
-            # NOTE: sell -> positive in paper
-            if action[i] < 0:  # sell
-                # if action is greater than holdings, sell all holdings
-                if (-1 * action[i]) >= initial_holdings[i]:
-                    balance += (initial_holdings[i] * initial_prices[i]) * fixed_cost
-                else:
-                    balance += (-1 * action[i]) * initial_prices[i] * fixed_cost
-            elif action[i] > 0:  # buy
-                needed_to_buy += action[i] * initial_prices[i]
-                stocks_to_buy[i] = action[i]
-            else:  # hold
-                pass
-        fixed_cost = 1 + self.transaction_cost
-        # print("needed to buy", needed_to_buy * fixed_cost)
-        # print("after sell balance", balance)
-        while balance < needed_to_buy * fixed_cost:
-            # TODO: find a better way to reduce the number of stocks to buy
-            for i in stocks_to_buy:
-                if stocks_to_buy[i] <= 0:  # need to keep for later portfolio math
-                    continue
-                n = min(stocks_to_buy[i], K//100)
-                stocks_to_buy[i] -= n
-                needed_to_buy -= (initial_prices[i] * n)
-        # if balance < needed_to_buy * fixed_cost:
-        #     self.invalid_actions += 1
-        #     self.current_pos -= 1
-        #     return -0.1, self.current_state
+            portfolio_value += action[i] * initial_prices[i]
+        #     portfolio_value += initial_holdings[i] * initial_prices[i]
+        #     # NOTE: sell -> positive in paper
+        #     if action[i] < 0:  # sell
+        #         # if action is greater than holdings, sell all holdings
+        #         ### NOTE: comment this 3 lines to allow short selling
+        #         if (-1 * action[i]) >= initial_holdings[i]:
+        #             balance += (initial_holdings[i] * initial_prices[i]) * fixed_cost
+        #         else:
+        #             balance += (-1 * action[i]) * initial_prices[i] * fixed_cost
+        #     elif action[i] > 0:  # buy
+        #         needed_to_buy += action[i] * initial_prices[i]
+        #         stocks_to_buy[i] = action[i]
+        #     else:  # hold
+        #         pass
+        # fixed_cost = 1 + self.transaction_cost
 
-        needed_to_buy *= fixed_cost
-        balance -= needed_to_buy
-        # print("new balance", balance)
-        # TODO: consider we assume we always can buy at close price (add variable slippage), dividends, etc.
-        new_value = 0
+        # while balance < needed_to_buy * fixed_cost:
+        #     # TODO: find a better way to reduce the number of stocks to buy
+        #     for i in stocks_to_buy:
+        #         if stocks_to_buy[i] <= 0:  # need to keep for later portfolio math
+        #             continue
+        #         n = min(stocks_to_buy[i], K//100)
+        #         stocks_to_buy[i] -= n
+        #         needed_to_buy -= (initial_prices[i] * n)
+        # # if balance < needed_to_buy * fixed_cost:
+        # #     self.invalid_actions += 1
+        # #     self.current_pos -= 1
+        # #     return -0.1, self.current_state
+
+        # needed_to_buy *= fixed_cost
+        # balance -= needed_to_buy
+        # # TODO: consider we assume we always can buy at close price (add variable slippage), dividends, etc.
+        # new_value = 0
         final_holdings = np.zeros(len(self.stock_symbols), dtype=np.float64)
-                # Get the closing prices for the current day
-        closing_prices = self._get_data("Close", STEP_SIZE)
-        for i in range(len(self.stock_symbols)):
-            if i in stocks_to_buy:
-                final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
-            else:
-                final_holdings[i] = max(initial_holdings[i] + action[i], 0)
-            new_value += final_holdings[i] * closing_prices[i]
-        roi = balance + new_value - portfolio_value
-        roi /= max(portfolio_value, 1)
+        # for i in range(len(self.stock_symbols)):
+        #     if i in stocks_to_buy:
+        #         final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
+        #     else:
+        #         final_holdings[i] = max(initial_holdings[i] + action[i], 0)
+        #     new_value += final_holdings[i] * closing_prices[i]
+        # roi = balance + new_value - portfolio_value
+        
+        data = self.stock_data[self.stock_symbols[0]]  # could be any stock
+        date = data.iloc[self.current_pos]["Date"]
+        # print(date, portfolio_value)
+        if date[:10] <= "2016-01-05" or date[:10] >= "2018-09-28":
+            print(date[:10], portfolio_value)
+        # else:
+        #     print(type(date), len(date), date)
+        roi = self.current_portfolio_value - portfolio_value  # NOTE: Tangency portfolio
+        roi /= portfolio_value
+        self.current_portfolio_value = portfolio_value  # NOTE: Tangency portfolio
         self.rois.append(roi)
         rf = self._get_data("rf_daily")[0]
-        self.rfs.append(rf)
+        self.rfs.append(rf)  # TODO: THIS VALUE IS WRONG because its normalized
         # log info
         self.holdings = [x for x in final_holdings]
-        if self.log:
-            # custom list starts with the date
-            custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
-            custom_list += [str(x) for x in final_holdings]
-            custom_str = ",".join(custom_list)
-            custom_str += f"{str(action_)}-{str(action)}\n"
-            with open(f"custom_log.txt", "a") as f:
-                f.write(str(custom_str) + "\n")
+        # if self.log:
+        #     # custom list starts with the date
+        #     custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
+        #     custom_list += [str(x) for x in final_holdings]
+        #     custom_str = ",".join(custom_list)
+        #     custom_str += f"{str(action_)}-{str(action)}\n"
+        #     with open(f"custom_log.txt", "a") as f:
+        #         f.write(str(custom_str) + "\n")
         # normalize holdings and prices
         final_holdings /= self.normalize_holdings
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
-        if self.eval:
-            return 0, new_state
-        return roi, new_state  # train
-    
-    def get_info(self):
-        return self._get_info()
+        return 0, new_state
     
     def _get_info(self):
         return {
             "holdings": self.holdings,
-            "balance": self.current_state["b"][0] * self.initial_balance,
             "sharpe_ratio": self.current_sharpe,
             "annual_return": self.current_annual_return,
-            "pos": self.current_pos,
-            "date": self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"],
-            "prices": self._get_data("Close"),
+            "pos": self.current_pos
         }
 
-    def _get_data(self, attr, future=0):
+    def _get_data(self, attr):
         attrs = []
         for symbol in self.stock_symbols:
             if symbol in self.stock_data:
                 data = self.stock_data[symbol]
                 if self.current_pos <= len(data):
-                    value = data.iloc[self.current_pos + future][attr]
+                    value = data.iloc[self.current_pos][attr]
                     # if pd.isna(value) and self.current_pos == 0:
                     #     value = 0
                     attrs.append(value)
@@ -359,3 +349,4 @@ class YF30(gym.Env):
                 print(self.stock_symbols)
                 raise Exception(f"Stock data not found for symbol: {symbol}")
         return np.array(attrs, dtype=np.float64)
+    # NOTE: Close is adj close when downloaded with Ticker history

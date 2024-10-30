@@ -8,7 +8,7 @@ import math
 
 num_dimensions = 30 #30  #1, 31
 
-STEP_SIZE = 1 #1
+STEP_SIZE = 64 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
@@ -31,10 +31,10 @@ dft_balance = 1000000.0
 dft_normalize_price = 1  #25  # 25-200
 dft_normalize_holdings = 1  #dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
-class YF30(gym.Env):
+class YFDagger(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
             end_date=dft_end_date, initial_balance=dft_balance):
-        super(YF30, self).__init__()
+        super(YFDagger, self).__init__()
         self.action_space = action_space
         self.stock_symbols = stock_symbols
         self.data_folder = data_folder
@@ -64,13 +64,11 @@ class YF30(gym.Env):
                 print(os.listdir())
                 print(f"File {file_path} not found")
                 raise FileNotFoundError(f"File {file_path} not found")
-        
-        # original: "Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"
-        # self.data_cols = ["Close", "MOM_1", "MOM_14",]
+
         # Initialize the states
         self.observation_space = spaces.Dict({
             # "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            # # TODO: test if improves normalizing prices
+            # TODO: test if improves normalizing prices
             "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
             "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
@@ -83,7 +81,7 @@ class YF30(gym.Env):
             # TODO: show if it improves removing holdings and balance from state
             # "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
             # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
-            #"b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
+            # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
 
         })
         self.current_pos = 0
@@ -93,8 +91,7 @@ class YF30(gym.Env):
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.eval = True    # use for evaluation
-        self.log = self.eval
+        self.log = False  # use for evaluation
         self.current_state = {}
         self.reset()
 
@@ -146,17 +143,6 @@ class YF30(gym.Env):
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
         date = data.iloc[self.current_pos]["Date"]
         done = date >= self.end_date or self.invalid_actions > 5  # 5 invalid actions
-        
-        # if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
-        #     print("wololo error")
-        # for col in self.data_cols:
-        #     if np.isnan(new_state[col]).any():
-        #         print(self.current_state)
-        #         print(self.current_pos)
-        #         print(date)
-        #         print(f"error {col}")
-        # if np.isnan(reward):
-        #     print("wololo 2 error")
 
         # go next trading day to calculate reward
         self.current_pos += STEP_SIZE
@@ -183,7 +169,7 @@ class YF30(gym.Env):
             self.current_sharpe = sharpe_ratio
             self.current_annual_return = annual_return - 1
             # reward = sharpe_ratio
-            reward = annual_return - 1
+            # reward = annual_return - 1  # NOTE: uncomment to return annual return
             if self.log:
                 # custom list starts with the date
                 custom_list = [str(self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"])]
@@ -319,12 +305,75 @@ class YF30(gym.Env):
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
-        if self.eval:
-            return 0, new_state
-        return roi, new_state  # train
+        return roi, new_state  # NOTE: train roi, new_state / eval 0, new_state
     
     def get_info(self):
         return self._get_info()
+
+    def _get_best_action(self):
+        # NOTE: seeing 1 step in the future, just to train supervised
+        # OPTION 1: sell all bad ones, buy as much as possible of the best ones
+        treshold_buy = self.transaction_cost
+        treshold_sell = -self.transaction_cost
+        max_1stock_percentage = 0.3
+        # OPTION 2: buy if diff > a, sell if diff < b
+        # values obtained from supervised random forest results
+        # OPTION 3?: buy as much as possible of only the best one?
+        # TODO: option 3
+        treshold_buy = 1.4889242119790786/100
+        treshold_sell = -2.02356011412344/100
+        # set best action
+        best_action = np.zeros(num_dimensions, dtype=np.float64)
+        # See future
+        balance = self.current_state["b"][0] * self.initial_balance
+        future_prices = self._get_data("Close", min(1, STEP_SIZE))  # TODO: evaluate min days
+        current_prices = self._get_data("Close")
+        percent_diffs = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
+        # current holdings percentage
+        portfolio_value = balance
+        for i in range(len(self.stock_symbols)):
+            portfolio_value += self.holdings[i] * current_prices[i]
+        proportions = [current_prices[i] * self.holdings[i] / portfolio_value for i in range(len(self.stock_symbols))]
+        # adjust tresholds
+        if balance/self.initial_balance > 0.5:
+            treshold_buy /= 5
+        elif balance/self.initial_balance > 0.3:
+            treshold_buy /= 3
+        elif balance/self.initial_balance > 0.2:
+            treshold_buy /= 2
+
+        # SELLING: similar for all options
+        # if diff < -fixed_cost, sell
+        # if diff > price + fixed_costy buy in order of biggest diff up to K and if enough balance
+        up_diffs = []
+        new_balance = balance
+        for i, diff in enumerate(percent_diffs):
+            if diff < treshold_sell:
+                best_action[i] = -1
+                cashed_stocks = min(K, int(self.holdings[i]))
+                cashed_balance = cashed_stocks * current_prices[i] * (1 - self.transaction_cost)
+                new_balance += cashed_balance
+            elif diff > treshold_buy:
+                # filter bigger than max_1stock_percentage
+                if proportions[i] > max_1stock_percentage:
+                    continue
+                up_diffs.append((i, diff))
+            # else (TODO: see many steps in the future)
+        up_diffs = sorted(up_diffs, key=lambda x: x[1], reverse=True)
+        new_balance /= (1 + self.transaction_cost)  # available cash
+        # OPTION 1 in order of biggest estimated diff
+        # while new_balance > 0 and len(up_diffs) > 0:
+        #     i, diff = up_diffs.pop(0)
+        #     n = min(K, new_balance // current_prices[i])
+        #     best_action[i] = n/K
+        #     new_balance -= n * current_prices[i]
+        # OPTION 2 proportional to diff
+        total_up_diffs = sum([x[1] for x in up_diffs])
+        for i, diff in up_diffs:
+            stock_cash = new_balance * diff / total_up_diffs
+            n = min(K, stock_cash // current_prices[i])
+            best_action[i] = n/K
+        return best_action
     
     def _get_info(self):
         return {
@@ -335,6 +384,7 @@ class YF30(gym.Env):
             "pos": self.current_pos,
             "date": self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"],
             "prices": self._get_data("Close"),
+            "best_action": self._get_best_action()
         }
 
     def _get_data(self, attr, future=0):

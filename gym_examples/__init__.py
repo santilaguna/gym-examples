@@ -29,3 +29,9 @@ register(
     entry_point="gym_examples.envs:YF30",
     max_episode_steps=10000,
 )
+
+register(
+    id="gym_examples/YFDagger",
+    entry_point="gym_examples.envs:YFDagger",
+    max_episode_steps=10000,
+)
