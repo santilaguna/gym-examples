@@ -60,11 +60,9 @@ class YFBasic(gym.Env):
         
         # Initialize the states space [p, h, b], prices, holdings, balance
         self.observation_space = spaces.Dict({
-            # TODO: preguntar si al normalizar importa que teoricamente el maximo sea infinito
             "p": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
             "h": spaces.Box(low=0, high=np.inf, shape=(num_dimensions,), dtype=np.float32),
             "b": spaces.Box(low=0.0, high=np.inf, dtype=np.float32)
-            # TODO: add additional information of the state
         })
         self.current_state = {
             "p": self._get_closing_prices()/self.normalize_price,

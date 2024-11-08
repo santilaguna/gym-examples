@@ -69,20 +69,20 @@ class YF30(gym.Env):
         # self.data_cols = ["Close", "MOM_1", "MOM_14",]
         # Initialize the states
         self.observation_space = spaces.Dict({
-            # "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
+            "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
             # # TODO: test if improves normalizing prices
-            "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
+            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
+            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
+            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
             # TODO: show if it improves removing holdings and balance from state
-            # "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
+            "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
+            "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
             #"b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
 
         })
@@ -160,9 +160,9 @@ class YF30(gym.Env):
 
         # go next trading day to calculate reward
         self.current_pos += STEP_SIZE
-        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
+        for i in range(1, STEP_SIZE):  # skip days and mantain valid rewards
             self.rois.append(0)
-            self.rfs.append(0)
+            self.rfs.append(self._get_data("rf_daily", i)[0])
 
         # calculate total reward
         if done:
@@ -231,7 +231,8 @@ class YF30(gym.Env):
         # x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
         # return {"h": np.array(x, dtype=np.float64)}
         # SELECT SOME FEATURES
-        ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
+        #ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
+        ret_state = {k: v for k, v in self.current_state.items() if k in {"h", "b", "Close"}}
         # ALL: check there are no nan values
         for k, v in ret_state.items():
             if np.isnan(v).any():  # replace nan with 0

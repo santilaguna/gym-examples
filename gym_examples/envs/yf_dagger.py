@@ -146,9 +146,9 @@ class YFDagger(gym.Env):
 
         # go next trading day to calculate reward
         self.current_pos += STEP_SIZE
-        for _ in range(STEP_SIZE - 1):  # skip days and mantain valid rewards
+        for i in range(1, STEP_SIZE):  # skip days and mantain valid rewards
             self.rois.append(0)
-            self.rfs.append(0)
+            self.rfs.append(self._get_data("rf_daily", i)[0])
 
         # calculate total reward
         if done:
