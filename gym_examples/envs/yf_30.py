@@ -15,7 +15,8 @@ action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.
 dft_stock_symbols = [  #"MMM"]
     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
+    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS",
+    #"DJI"
 ]
 dft_data_folder = "dow_data_norm"
 # os.path.join("gym-examples", "gym_examples", "envs", "yf_data")
@@ -28,8 +29,6 @@ dft_end_date = "2015-01-01"
 # test end = "2018-09-30"
 
 dft_balance = 1000000.0
-dft_normalize_price = 1  #25  # 25-200
-dft_normalize_holdings = 1  #dft_balance / (30 * dft_normalize_price)
 # Create your custom Gym environment with this action space
 class YF30(gym.Env):
     def __init__(self, stock_symbols=dft_stock_symbols, data_folder=dft_data_folder, start_date=dft_start_date, 
@@ -41,18 +40,8 @@ class YF30(gym.Env):
         self.start_date = start_date
         self.end_date = end_date
         self.initial_balance = np.float64(initial_balance)
-        self.normalize_price = np.float64(dft_normalize_price)
-        self.normalize_holdings = np.float64(dft_normalize_holdings)
         self.transaction_cost = 0.002  # 0.2% # TODO: cost should be variable, not fixed
-        self.normalize = {
-            "rf": np.float64(1),
-            "MOM_1": np.float64(1),
-            "MOM_14": np.float64(1),
-            "RSI_14_exp": np.float64(1),
-            "SHARPE_RATIO": np.float64(1),
-            "VolNorm": np.float64(1),
-            "OBV_14": np.float64(1)
-        }
+
 
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
@@ -65,27 +54,18 @@ class YF30(gym.Env):
                 print(f"File {file_path} not found")
                 raise FileNotFoundError(f"File {file_path} not found")
         
-        # original: "Close", "rf", "MOM_1", "MOM_14", "RSI_14_exp", "SHARPE_RATIO", "VolNorm", "OBV_14"
-        # self.data_cols = ["Close", "MOM_1", "MOM_14",]
-        # Initialize the states
-        self.observation_space = spaces.Dict({
-            "Close": spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64),
-            # # TODO: test if improves normalizing prices
-            # "rf": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_14": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_50": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "rf_change_100": spaces.Box(low=-4.0, high=4.0, dtype=np.float64),
-            # "MOM_1": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "MOM_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # "VolNorm_nan": spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64),
-            # "OBV_14": spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64),
-            # TODO: show if it improves removing holdings and balance from state
-            "h": spaces.Box(low=-1, high=1, shape=(num_dimensions,), dtype=np.float64),
-            "b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
-            #"b": spaces.Box(low=0, high=np.inf, dtype=np.float64)
+        # Open,High,Low,Close,Volume,Dividends,Stock Splits,Date,rf_daily
+        self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", "rf_daily"]
+        self.state_cols = self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
+        space_dict = {
+            col: spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64) for col in self.state_cols
+        }
+        # space_dict["Close"] = spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64)
+        # space_dict["h"] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
+        # space_dict["b"] = spaces.Box(low=0, high=np.inf, dtype=np.float64)
+        # space_dict["rf"] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
+        self.observation_space = spaces.Dict(space_dict)
 
-        })
         self.current_pos = 0
         self.rois = []
         self.rfs = []
@@ -124,20 +104,10 @@ class YF30(gym.Env):
         return self._get_observation(), {}
 
     def get_state_data(self):
-        return {
-            "Close": self._get_data("Close")/self.normalize_price,
-            "rf": self._get_data("rf") / self.normalize["rf"],
-            "rf_change_14": self._get_data("rf_change_14") / self.normalize["rf"],
-            "rf_change_50": self._get_data("rf_change_50") / self.normalize["rf"],
-            "rf_change_100": self._get_data("rf_change_100") / self.normalize["rf"],
-            "MOM_1": self._get_data("MOM_1") / self.normalize["MOM_1"],
-            "MOM_14": self._get_data("MOM_14") / self.normalize["MOM_14"],
-            "VolNorm": self._get_data("VolNorm") / self.normalize["VolNorm"],  # need nan
-            "VolNorm_nan": self._get_data("VolNorm_nan"),
-            "OBV_14": self._get_data("OBV_14") / self.normalize["OBV_14"],
-            "h": np.zeros(num_dimensions, dtype=np.float64),
-            "b": np.array([1], dtype=np.float64)
-        }
+        ret = {col: self._get_data(col) for col in self.state_cols}
+        ret["h"] = np.zeros(num_dimensions, dtype=np.float64),  # keep
+        ret["b"] = np.array([1], dtype=np.float64)  #  keep
+        return ret
 
     def step(self, action):
         reward, new_state = self._get_reward_and_state(action)
@@ -146,17 +116,6 @@ class YF30(gym.Env):
         data = self.stock_data[self.stock_symbols[0]]  # could be any stock
         date = data.iloc[self.current_pos]["Date"]
         done = date >= self.end_date or self.invalid_actions > 5  # 5 invalid actions
-        
-        # if np.isnan(new_state["h"]).any() or np.isnan(new_state["Close"]).any() or np.isnan(new_state["b"]):
-        #     print("wololo error")
-        # for col in self.data_cols:
-        #     if np.isnan(new_state[col]).any():
-        #         print(self.current_state)
-        #         print(self.current_pos)
-        #         print(date)
-        #         print(f"error {col}")
-        # if np.isnan(reward):
-        #     print("wololo 2 error")
 
         # go next trading day to calculate reward
         self.current_pos += STEP_SIZE
@@ -208,8 +167,6 @@ class YF30(gym.Env):
         pass
 
     def _get_observation(self):
-        # FULL STATE
-        # return self.current_state
         # ULTRA BASIC STATE
         # return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
@@ -230,9 +187,11 @@ class YF30(gym.Env):
         # alt 1 proportional to choose best stock?
         # x = [(future_prices[i] - current_prices[i])/current_prices[i] for i in range(len(self.stock_symbols))]
         # return {"h": np.array(x, dtype=np.float64)}
+        # FULL STATE
+        #ignore = {}
         # SELECT SOME FEATURES
-        #ret_state = {k: v for k, v in self.current_state.items() if k not in {"h", "b", "Close"}}
-        ret_state = {k: v for k, v in self.current_state.items() if k in {"h", "b", "Close"}}
+        ignore = {x for x in self.not_state_cols}
+        ret_state = {k: v for k, v in self.current_state.items() if k not in ignore}
         # ALL: check there are no nan values
         for k, v in ret_state.items():
             if np.isnan(v).any():  # replace nan with 0
@@ -244,8 +203,8 @@ class YF30(gym.Env):
         action = [round(K*x) for x in action_]
 
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
-        initial_prices = self._get_data("Close") * self.normalize_price
-        initial_holdings = self.current_state["h"] * self.normalize_holdings
+        initial_prices = self._get_data("Close")
+        initial_holdings = self.current_state["h"]
 
         # check if action is posible and initial portfolio value
         balance = self.current_state["b"][0] * self.initial_balance
@@ -315,8 +274,6 @@ class YF30(gym.Env):
             custom_str += f"{str(action_)}-{str(action)}\n"
             with open(f"custom_log.txt", "a") as f:
                 f.write(str(custom_str) + "\n")
-        # normalize holdings and prices
-        final_holdings /= self.normalize_holdings
         new_state = self.get_state_data()
         new_state["h"] = final_holdings
         new_state["b"] = np.array([balance/self.initial_balance], dtype=np.float64)
