@@ -42,7 +42,6 @@ class YF30(gym.Env):
         self.initial_balance = np.float64(initial_balance)
         self.transaction_cost = 0.002  # 0.2% # TODO: cost should be variable, not fixed
 
-
         # Load historical data for all stock symbols into a dictionary
         self.stock_data = {}
         for symbol in stock_symbols:
@@ -55,15 +54,24 @@ class YF30(gym.Env):
                 raise FileNotFoundError(f"File {file_path} not found")
         
         # Open,High,Low,Close,Volume,Dividends,Stock Splits,Date,rf_daily
-        self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", "rf_daily"]
+        self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", 
+            "rf_daily", "rf_daily_nan", "h", "b"]
         self.state_cols = self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
         space_dict = {
             col: spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64) for col in self.state_cols
         }
+        nan_cols = [col for col in self.state_cols if "nan" in col]
+        for col in nan_cols:
+            space_dict[col] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
+        macro_cols = [col for col in self.state_cols if "rf_change" in col] + ["rf"]
+        for col in macro_cols:
+            if col in nan_cols:
+                space_dict[col] = spaces.Box(low=0, high=1, dtype=np.float64)
+            else:
+                space_dict[col] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
         # space_dict["Close"] = spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64)
         # space_dict["h"] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
         # space_dict["b"] = spaces.Box(low=0, high=np.inf, dtype=np.float64)
-        # space_dict["rf"] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
         self.observation_space = spaces.Dict(space_dict)
 
         self.current_pos = 0
@@ -73,7 +81,7 @@ class YF30(gym.Env):
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
-        self.eval = True    # use for evaluation
+        self.eval = False    # use for evaluation
         self.log = self.eval
         self.current_state = {}
         self.reset()
@@ -105,7 +113,7 @@ class YF30(gym.Env):
 
     def get_state_data(self):
         ret = {col: self._get_data(col) for col in self.state_cols}
-        ret["h"] = np.zeros(num_dimensions, dtype=np.float64),  # keep
+        ret["h"] = np.zeros(num_dimensions, dtype=np.float64)  # keep
         ret["b"] = np.array([1], dtype=np.float64)  #  keep
         return ret
 
