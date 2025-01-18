@@ -12,7 +12,7 @@ STEP_SIZE = 1 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 
 include_all = True
-action_type = "weights"  # "continuous", "directions", "multidiscrete", "weights"
+action_type = "multidiscrete"  # "continuous", "directions", "multidiscrete", "weights"
 if action_type == "continuous":
     # continuous = [-1, 1]
     action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
@@ -115,7 +115,7 @@ class YF30(gym.Env):
         self.current_sharpe = 0
         self.current_annual_return = 0
         self.reward_type = "roi"  # "roi"
-        self.eval = False    # use for evaluation
+        self.eval = True    # use for evaluation
         self.log = self.eval
         self.current_state = {}
         self.reset()
@@ -269,14 +269,14 @@ class YF30(gym.Env):
             return [round(K*x) for x in action_]
         elif action_type == "directions":
             # directions
-            # fix = [round(x - 1) for x in action_]
-            # return [K*x for x in fix]
-            return [round(K*x) for x in action_]
+            fix = [round(x - 1) for x in action_]
+            return [K*x for x in fix]
+            # return [round(K*x) for x in action_]
         elif action_type == "multidiscrete":
             # multi_discrete, up to 5
-            # fix = [round(x - 5) for x in action_]
-            # return [K*x/5 for x in fix]
-            return [round(K*x) for x in action_]
+            fix = [round(x - 5) for x in action_]
+            return [K*x/5 for x in fix]
+            # return [round(K*x) for x in action_]
         elif action_type == "weights":
             # weights
             new_weights = self._soft_max(action_)
