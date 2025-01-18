@@ -11,18 +11,24 @@ num_dimensions = 30  #426 #30  #1, 31, 426
 STEP_SIZE = 1 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 
-# directions = [-1, 0, 1]
-# action_space = spaces.MultiDiscrete(
-#     np.array([3 for i in range(num_dimensions)]), 
-#     dtype=np.int32)
-# multi_discrete = [-5, ... 0, ...5]
-# action_space = spaces.MultiDiscrete(
-#     np.array([11 for i in range(num_dimensions)]),
-#     dtype=np.int32)
-# continuous = [-1, 1]
-# action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
-# weighted = [0, 1]
-action_space = spaces.Box(low=0.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
+include_all = True
+action_type = "weights"  # "continuous", "directions", "multidiscrete", "weights"
+if action_type == "continuous":
+    # continuous = [-1, 1]
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
+elif action_type == "directions":
+    # directions = [-1, 0, 1]
+    action_space = spaces.MultiDiscrete(
+        np.array([3 for i in range(num_dimensions)]), 
+        dtype=np.int32)
+elif action_type == "multidiscrete":
+    # multidiscrete = [-5, ... 0, ...5]
+    action_space = spaces.MultiDiscrete(
+        np.array([11 for i in range(num_dimensions)]),
+        dtype=np.int32)
+elif action_type == "weights":
+    # weights = [0, 1]
+    action_space = spaces.Box(low=0.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
 dft_stock_symbols = [  #"MMM"]
     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
@@ -68,43 +74,36 @@ class YF30(gym.Env):
                 print(f"File {file_path} not found")
                 raise FileNotFoundError(f"File {file_path} not found")
         self.rf_data = pd.read_csv(os.path.join(rf_data_folder, "AAPL.csv"))
-        
-        # Open,High,Low,Close,Volume,Dividends,Stock Splits,Date,rf_daily
-        self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", 
-            "rf_daily", "rf_daily_nan", "h"]  #, "b"  # NOTE: remove "b" for dummy
-        self.state_cols = []
-        #self.state_cols = self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
-        # self.state_cols = [
-        #     "rf",
-        #     "rf_change_14",
-        #     "rf_change_50",
-        #     "rf_change_100",
-        #     "MOM_1",
-        #     "MOM_14",
-        #     "VolNorm",
-        #     "VolNorm_nan",
-        #     "OBV_14",
-        # ]
+
+        if include_all:
+            self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", 
+                "rf_daily", "rf_daily_nan"]
+        else:
+            self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", 
+                "rf_daily", "rf_daily_nan", "h", "b"]  # NOTE: also remove "b" for dummy
+
+        self.state_cols = self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
         space_dict = {
             col: spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64) for col in self.state_cols
         }
         # comment for dummy or phb
-        # nan_cols = [col for col in self.state_cols if "nan" in col]
-        # for col in nan_cols:
-        #     space_dict[col] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
-        # # NOTE: comment for dummy or phb
-        # macro_cols = [col for col in self.state_cols if "rf_change" in col] + ["rf"]
-        # for col in macro_cols:
-        #     if col in nan_cols:
-        #         space_dict[col] = spaces.Box(low=0, high=1, dtype=np.float64)
-        #     else:
-        #         space_dict[col] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
+        nan_cols = [col for col in self.state_cols if "nan" in col]
+        for col in nan_cols:
+            space_dict[col] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
+        # NOTE: comment for dummy or phb
+        macro_cols = [col for col in self.state_cols if "rf_change" in col] + ["rf"]
+        for col in macro_cols:
+            if col in nan_cols:
+                space_dict[col] = spaces.Box(low=0, high=1, dtype=np.float64)
+            else:
+                space_dict[col] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
 
         # space_dict["Close"] = spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64)
-        # space_dict["h"] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
-        # space_dict["b"] = spaces.Box(low=0, high=np.inf, dtype=np.float64)
+        if include_all:
+            space_dict["h"] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
+            space_dict["b"] = spaces.Box(low=0, high=1, dtype=np.float64)
 
-        space_dict["b"] = spaces.Box(low=0, high=2, dtype=np.float64)
+            # space_dict["b"] = spaces.Box(low=0, high=2, dtype=np.float64)
 
         self.observation_space = spaces.Dict(space_dict)
 
@@ -219,7 +218,7 @@ class YF30(gym.Env):
 
     def _get_observation(self):
         # ULTRA BASIC STATE
-        return {"b": np.array([1], dtype=np.float64)}
+        # return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
         # future_prices = self._get_data("Close", STEP_SIZE)
         # current_prices = self._get_data("Close")
@@ -241,35 +240,54 @@ class YF30(gym.Env):
         # FULL STATE
         #ignore = {}
         # SELECT SOME FEATURES
-        # ignore = {x for x in self.not_state_cols}
-        # ret_state = {k: v for k, v in self.current_state.items() if k not in ignore}
-        # # ALL: check there are no nan values
-        # for k, v in ret_state.items():
-        #     if np.isnan(v).any():  # replace nan with 0
-        #         ret_state[k] = np.nan_to_num(v)
-        # return ret_state
+        ignore = {x for x in self.not_state_cols}
+        ret_state = {k: v for k, v in self.current_state.items() if k not in ignore}
+        # ALL: check there are no nan values
+        for k, v in ret_state.items():
+            if np.isnan(v).any():  # replace nan with 0
+                ret_state[k] = np.nan_to_num(v)
+        if include_all:  # need to fix holdings and balance
+            # holdings should be weights for the observation
+            prices = self._get_data("Close")
+            current_holdings = self.current_state["h"]
+            balance = self.current_state["b"][0] * self.initial_balance
+            portfolio_value = balance
+            for i in range(len(self.stock_symbols)):
+                portfolio_value += current_holdings[i] * prices[i]
+            weights = [h * p / portfolio_value if p > 0 else 0 for h, p in zip(current_holdings, prices)]
+            ret_state["h"] = np.array(weights, dtype=np.float64)
+            # balance should be normalized with portfolio value as well
+            ret_state["b"] = np.array([balance/portfolio_value], dtype=np.float64)
+        return ret_state
     
     def _soft_max(self, x):
         return np.exp(x) / np.sum(np.exp(x), axis=0)
     
     def _action_fix(self, action_):
-        # directions
-        # fix = [x - 1 for x in action_]
-        # return [K*x for x in fix]   
-        # multi_discrete, up to 5
-        # fix = [x - 5 for x in action_]
-        # return [K*x/5 for x in fix]
-        # continuous
-        # return [round(K*x) for x in action_]
-        # weighted
-        new_weights = self._soft_max(action_)
-        prices = self._get_data("Close")
-        current_holdings = self.current_state["h"]
-        portfolio_value = self.current_state["b"][0] * self.initial_balance
-        portfolio_value += sum([h * p for h, p in zip(current_holdings, prices)])
-        predicted_holdings = [portfolio_value * w // p if p > 0 else 0 for w, p in zip(new_weights, prices)]
-        diffs = [p - h for p, h in zip(predicted_holdings, current_holdings)]
-        return [max(min(d, K), -K) for d in diffs]
+        if action_type == "continuous":
+            # continuous
+            return [round(K*x) for x in action_]
+        elif action_type == "directions":
+            # directions
+            # fix = [round(x - 1) for x in action_]
+            # return [K*x for x in fix]
+            return [round(K*x) for x in action_]
+        elif action_type == "multidiscrete":
+            # multi_discrete, up to 5
+            # fix = [round(x - 5) for x in action_]
+            # return [K*x/5 for x in fix]
+            return [round(K*x) for x in action_]
+        elif action_type == "weights":
+            # weights
+            new_weights = self._soft_max(action_)
+            prices = self._get_data("Close")
+            current_holdings = self.current_state["h"]
+            portfolio_value = self.current_state["b"][0] * self.initial_balance
+            portfolio_value += sum([h * p for h, p in zip(current_holdings, prices)])
+            predicted_holdings = [portfolio_value * w // p if p > 0 else 0 for w, p in zip(new_weights, prices)]
+            diffs = [p - h for p, h in zip(predicted_holdings, current_holdings)]
+            return [max(min(d, K), -K) for d in diffs]
+        raise Exception(f"Action type {action_type} not found")
 
     def _get_reward_and_state(self, action_):
         # action fix
