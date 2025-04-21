@@ -6,13 +6,13 @@ import os
 import pandas as pd
 import math
 
-num_dimensions = 30  #426 #30  #1, 31, 426
+num_dimensions = 426  #426 #30  #1, 31, 426
 
 STEP_SIZE = 1 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 
-include_all = True
-action_type = "multidiscrete"  # "continuous", "directions", "multidiscrete", "weights"
+include_all = False
+action_type = "directions"  # "continuous", "directions", "multidiscrete", "weights"
 if action_type == "continuous":
     # continuous = [-1, 1]
     action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
@@ -30,15 +30,15 @@ elif action_type == "weights":
     # weights = [0, 1]
     action_space = spaces.Box(low=0.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
-dft_stock_symbols = [  #"MMM"]
-    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS",
-    #"DJI"
-]
+# dft_stock_symbols = [  #"MMM"]
+#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS",
+#     #"DJI"
+# ]
 #dft_stock_symbols = ["^GSPC"]
-#dft_stock_symbols = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'BRK-B', 'GOOG', 'JPM', 'LLY', 'UNH', 'XOM', 'V', 'MA', 'COST', 'HD', 'PG', 'WMT', 'NFLX', 'JNJ', 'CRM', 'BAC', 'ORCL', 'CVX', 'WFC', 'MRK', 'KO', 'CSCO', 'ADBE', 'ACN', 'AMD', 'PEP', 'LIN', 'MCD', 'IBM', 'DIS', 'PM', 'ABT', 'GE', 'CAT', 'TMO', 'ISRG', 'GS', 'VZ', 'TXN', 'INTU', 'QCOM', 'BKNG', 'AXP', 'SPGI', 'T', 'CMCSA', 'MS', 'RTX', 'NEE', 'PGR', 'LOW', 'DHR', 'AMGN', 'ETN', 'HON', 'UNP', 'PFE', 'AMAT', 'BLK', 'TJX', 'COP', 'BX', 'SYK', 'C', 'BSX', 'FI', 'ADP', 'SCHW', 'VRTX', 'TMUS', 'BMY', 'DE', 'MMC', 'SBUX', 'GILD', 'MU', 'LMT', 'BA', 'MDT', 'ADI', 'CB', 'PLD', 'INTC', 'UPS', 'MO', 'SO', 'AMT', 'LRCX', 'TT', 'CI', 'NKE', 'ELV', 'EQIX', 'ICE', 'SHW', 'PH', 'DUK', 'APH', 'MDLZ', 'CMG', 'PNC', 'CDNS', 'KLAC', 'SNPS', 'AON', 'CME', 'USB', 'WM', 'MSI', 'MCK', 'WELL', 'REGN', 'CL', 'MCO', 'CTAS', 'EMR', 'EOG', 'ITW', 'APD', 'CVS', 'COF', 'MMM', 'GD', 'ORLY', 'WMB', 'CSX', 'TDG', 'AJG', 'ADSK', 'FDX', 'MAR', 'NOC', 'OKE', 'BDX', 'TFC', 'ECL', 'NSC', 'FCX', 'SLB', 'PCAR', 'ROP', 'TRV', 'BK', 'DLR', 'SRE', 'TGT', 'FICO', 'URI', 'RCL', 'AFL', 'AMP', 'SPG', 'JCI', 'CPRT', 'PSA', 'ALL', 'GWW', 'AZO', 'AEP', 'CMI', 'MET', 'ROST', 'PWR', 'O', 'D', 'DHI', 'AIG', 'NEM', 'FAST', 'MSCI', 'PEG', 'KMB', 'PAYX', 'LHX', 'FIS', 'CCI', 'PRU', 'PCG', 'DFS', 'AME', 'TEL', 'AXON', 'VLO', 'RSG', 'COR', 'F', 'BKR', 'EW', 'ODFL', 'CBRE', 'LEN', 'DAL', 'HES', 'IT', 'KR', 'CTSH', 'XEL', 'EA', 'EXC', 'A', 'YUM', 'MNST', 'HPQ', 'VMC', 'ACGL', 'SYY', 'GLW', 'MTB', 'KDP', 'RMD', 'GIS', 'MCHP', 'LULU', 'STZ', 'NUE', 'MLM', 'EXR', 'IRM', 'HIG', 'HUM', 'WAB', 'ED', 'DD', 'IDXX', 'NDAQ', 'EIX', 'ROK', 'OXY', 'AVB', 'ETR', 'CSGP', 'GRMN', 'FITB', 'WTW', 'WEC', 'EFX', 'EBAY', 'UAL', 'CNC', 'RJF', 'DXCM', 'TTWO', 'ANSS', 'ON', 'TSCO', 'GPN', 'CAH', 'DECK', 'TPL', 'STT', 'PPG', 'NVR', 'DOV', 'PHM', 'HAL', 'MPWR', 'BR', 'TROW', 'TYL', 'EQT', 'CHD', 'BRO', 'AWK', 'NTAP', 'VTR', 'HBAN', 'EQR', 'MTD', 'DTE', 'PPL', 'ADM', 'CCL', 'HSY', 'AEE', 'RF', 'CINF', 'HUBB', 'SBAC', 'PTC', 'WDC', 'DVN', 'ATO', 'IFF', 'EXPE', 'WY', 'WST', 'WAT', 'BIIB', 'ES', 'WBD', 'ZBH', 'TDY', 'LDOS', 'NTRS', 'PKG', 'K', 'LYV', 'FE', 'BLDR', 'STX', 'STE', 'CNP', 'CMS', 'NRG', 'ZBRA', 'CLX', 'STLD', 'DRI', 'FSLR', 'IP', 'OMC', 'COO', 'LH', 'ESS', 'CTRA', 'MKC', 'SNA', 'WRB', 'LUV', 'MAA', 'BALL', 'PODD', 'FDS', 'PFG', 'HOLX', 'KEY', 'TSN', 'DGX', 'PNR', 'LVS', 'GPC', 'TER', 'TRMB', 'J', 'MAS', 'IEX', 'MOH', 'ARE', 'BBY', 'SMCI', 'ULTA', 'EXPD', 'KIM', 'NI', 'EL', 'BAX', 'GEN', 'EG', 'DPZ', 'AVY', 'LNT', 'ALGN', 'TXT', 'CF', 'L', 'DOC', 'VTRS', 'VRSN', 'JBHT', 'JBL', 'EVRG', 'FFIV', 'POOL', 'ROL', 'RVTY', 'AKAM', 'NDSN', 'TPR', 'DLTR', 'UDR', 'SWK', 'SWKS', 'CPT', 'KMX', 'CAG', 'HST', 'SJM', 'BG', 'JKHY', 'ALB', 'CHRW', 'EMN', 'UHS', 'REG', 'BXP', 'INCY', 'JNPR', 'AIZ', 'TECH', 'IPG', 'ERIE', 'TAP', 'PNW', 'LKQ', 'CRL', 'GL', 'MKTX', 'HSIC', 'HRL', 'CPB', 'TFX', 'RL', 'AES', 'AOS', 'FRT', 'MGM', 'WYNN', 'MTCH', 'HAS', 'APA', 'IVZ', 'MOS', 'CE', 'BWA', 'DVA', 'BF-B', 'FMC', 'MHK', 'BEN', 'PARA', 'WBA']
-dft_data_folder = "paper_data"  # sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
+dft_stock_symbols = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'BRK-B', 'GOOG', 'JPM', 'LLY', 'UNH', 'XOM', 'V', 'MA', 'COST', 'HD', 'PG', 'WMT', 'NFLX', 'JNJ', 'CRM', 'BAC', 'ORCL', 'CVX', 'WFC', 'MRK', 'KO', 'CSCO', 'ADBE', 'ACN', 'AMD', 'PEP', 'LIN', 'MCD', 'IBM', 'DIS', 'PM', 'ABT', 'GE', 'CAT', 'TMO', 'ISRG', 'GS', 'VZ', 'TXN', 'INTU', 'QCOM', 'BKNG', 'AXP', 'SPGI', 'T', 'CMCSA', 'MS', 'RTX', 'NEE', 'PGR', 'LOW', 'DHR', 'AMGN', 'ETN', 'HON', 'UNP', 'PFE', 'AMAT', 'BLK', 'TJX', 'COP', 'BX', 'SYK', 'C', 'BSX', 'FI', 'ADP', 'SCHW', 'VRTX', 'TMUS', 'BMY', 'DE', 'MMC', 'SBUX', 'GILD', 'MU', 'LMT', 'BA', 'MDT', 'ADI', 'CB', 'PLD', 'INTC', 'UPS', 'MO', 'SO', 'AMT', 'LRCX', 'TT', 'CI', 'NKE', 'ELV', 'EQIX', 'ICE', 'SHW', 'PH', 'DUK', 'APH', 'MDLZ', 'CMG', 'PNC', 'CDNS', 'KLAC', 'SNPS', 'AON', 'CME', 'USB', 'WM', 'MSI', 'MCK', 'WELL', 'REGN', 'CL', 'MCO', 'CTAS', 'EMR', 'EOG', 'ITW', 'APD', 'CVS', 'COF', 'MMM', 'GD', 'ORLY', 'WMB', 'CSX', 'TDG', 'AJG', 'ADSK', 'FDX', 'MAR', 'NOC', 'OKE', 'BDX', 'TFC', 'ECL', 'NSC', 'FCX', 'SLB', 'PCAR', 'ROP', 'TRV', 'BK', 'DLR', 'SRE', 'TGT', 'FICO', 'URI', 'RCL', 'AFL', 'AMP', 'SPG', 'JCI', 'CPRT', 'PSA', 'ALL', 'GWW', 'AZO', 'AEP', 'CMI', 'MET', 'ROST', 'PWR', 'O', 'D', 'DHI', 'AIG', 'NEM', 'FAST', 'MSCI', 'PEG', 'KMB', 'PAYX', 'LHX', 'FIS', 'CCI', 'PRU', 'PCG', 'DFS', 'AME', 'TEL', 'AXON', 'VLO', 'RSG', 'COR', 'F', 'BKR', 'EW', 'ODFL', 'CBRE', 'LEN', 'DAL', 'HES', 'IT', 'KR', 'CTSH', 'XEL', 'EA', 'EXC', 'A', 'YUM', 'MNST', 'HPQ', 'VMC', 'ACGL', 'SYY', 'GLW', 'MTB', 'KDP', 'RMD', 'GIS', 'MCHP', 'LULU', 'STZ', 'NUE', 'MLM', 'EXR', 'IRM', 'HIG', 'HUM', 'WAB', 'ED', 'DD', 'IDXX', 'NDAQ', 'EIX', 'ROK', 'OXY', 'AVB', 'ETR', 'CSGP', 'GRMN', 'FITB', 'WTW', 'WEC', 'EFX', 'EBAY', 'UAL', 'CNC', 'RJF', 'DXCM', 'TTWO', 'ANSS', 'ON', 'TSCO', 'GPN', 'CAH', 'DECK', 'TPL', 'STT', 'PPG', 'NVR', 'DOV', 'PHM', 'HAL', 'MPWR', 'BR', 'TROW', 'TYL', 'EQT', 'CHD', 'BRO', 'AWK', 'NTAP', 'VTR', 'HBAN', 'EQR', 'MTD', 'DTE', 'PPL', 'ADM', 'CCL', 'HSY', 'AEE', 'RF', 'CINF', 'HUBB', 'SBAC', 'PTC', 'WDC', 'DVN', 'ATO', 'IFF', 'EXPE', 'WY', 'WST', 'WAT', 'BIIB', 'ES', 'WBD', 'ZBH', 'TDY', 'LDOS', 'NTRS', 'PKG', 'K', 'LYV', 'FE', 'BLDR', 'STX', 'STE', 'CNP', 'CMS', 'NRG', 'ZBRA', 'CLX', 'STLD', 'DRI', 'FSLR', 'IP', 'OMC', 'COO', 'LH', 'ESS', 'CTRA', 'MKC', 'SNA', 'WRB', 'LUV', 'MAA', 'BALL', 'PODD', 'FDS', 'PFG', 'HOLX', 'KEY', 'TSN', 'DGX', 'PNR', 'LVS', 'GPC', 'TER', 'TRMB', 'J', 'MAS', 'IEX', 'MOH', 'ARE', 'BBY', 'SMCI', 'ULTA', 'EXPD', 'KIM', 'NI', 'EL', 'BAX', 'GEN', 'EG', 'DPZ', 'AVY', 'LNT', 'ALGN', 'TXT', 'CF', 'L', 'DOC', 'VTRS', 'VRSN', 'JBHT', 'JBL', 'EVRG', 'FFIV', 'POOL', 'ROL', 'RVTY', 'AKAM', 'NDSN', 'TPR', 'DLTR', 'UDR', 'SWK', 'SWKS', 'CPT', 'KMX', 'CAG', 'HST', 'SJM', 'BG', 'JKHY', 'ALB', 'CHRW', 'EMN', 'UHS', 'REG', 'BXP', 'INCY', 'JNPR', 'AIZ', 'TECH', 'IPG', 'ERIE', 'TAP', 'PNW', 'LKQ', 'CRL', 'GL', 'MKTX', 'HSIC', 'HRL', 'CPB', 'TFX', 'RL', 'AES', 'AOS', 'FRT', 'MGM', 'WYNN', 'MTCH', 'HAS', 'APA', 'IVZ', 'MOS', 'CE', 'BWA', 'DVA', 'BF-B', 'FMC', 'MHK', 'BEN', 'PARA', 'WBA']
+dft_data_folder = "sp_full_data"  # sp_full_data sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
 rf_data_folder = "dow_data_norm"
 
 dft_start_date = "2009-01-01"
@@ -80,30 +80,30 @@ class YF30(gym.Env):
                 "rf_daily", "rf_daily_nan"]
         else:
             self.not_state_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits", "Date", 
-                "rf_daily", "rf_daily_nan", "h", "b"]  # NOTE: also remove "b" for dummy
+                "rf_daily", "rf_daily_nan", "h"]  # NOTE: also remove "b" for dummy
 
-        self.state_cols = self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
+        self.state_cols = []#self.stock_data[self.stock_symbols[0]].columns.difference(self.not_state_cols)
         space_dict = {
             col: spaces.Box(low=-4.0, high=4.0, shape=(num_dimensions,), dtype=np.float64) for col in self.state_cols
         }
         # comment for dummy or phb
-        nan_cols = [col for col in self.state_cols if "nan" in col]
-        for col in nan_cols:
-            space_dict[col] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
-        # NOTE: comment for dummy or phb
-        macro_cols = [col for col in self.state_cols if "rf_change" in col] + ["rf"]
-        for col in macro_cols:
-            if col in nan_cols:
-                space_dict[col] = spaces.Box(low=0, high=1, dtype=np.float64)
-            else:
-                space_dict[col] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
+        # nan_cols = [col for col in self.state_cols if "nan" in col]
+        # for col in nan_cols:
+        #     space_dict[col] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
+        # # NOTE: comment for dummy or phb
+        # macro_cols = [col for col in self.state_cols if "rf_change" in col] + ["rf"]
+        # for col in macro_cols:
+        #     if col in nan_cols:
+        #         space_dict[col] = spaces.Box(low=0, high=1, dtype=np.float64)
+        #     else:
+        #         space_dict[col] = spaces.Box(low=-4.0, high=4.0, dtype=np.float64)
 
         # space_dict["Close"] = spaces.Box(low=0.0, high=np.inf, shape=(num_dimensions,), dtype=np.float64)
         if include_all:
             space_dict["h"] = spaces.Box(low=0, high=1, shape=(num_dimensions,), dtype=np.float64)
             space_dict["b"] = spaces.Box(low=0, high=1, dtype=np.float64)
 
-            # space_dict["b"] = spaces.Box(low=0, high=2, dtype=np.float64)
+        space_dict["b"] = spaces.Box(low=0, high=2, dtype=np.float64)
 
         self.observation_space = spaces.Dict(space_dict)
 
@@ -218,7 +218,7 @@ class YF30(gym.Env):
 
     def _get_observation(self):
         # ULTRA BASIC STATE
-        # return {"b": np.array([1], dtype=np.float64)}
+        return {"b": np.array([1], dtype=np.float64)}
         # ULTRA EASY STATE
         # future_prices = self._get_data("Close", STEP_SIZE)
         # current_prices = self._get_data("Close")
@@ -240,25 +240,25 @@ class YF30(gym.Env):
         # FULL STATE
         #ignore = {}
         # SELECT SOME FEATURES
-        ignore = {x for x in self.not_state_cols}
-        ret_state = {k: v for k, v in self.current_state.items() if k not in ignore}
-        # ALL: check there are no nan values
-        for k, v in ret_state.items():
-            if np.isnan(v).any():  # replace nan with 0
-                ret_state[k] = np.nan_to_num(v)
-        if include_all:  # need to fix holdings and balance
-            # holdings should be weights for the observation
-            prices = self._get_data("Close")
-            current_holdings = self.current_state["h"]
-            balance = self.current_state["b"][0] * self.initial_balance
-            portfolio_value = balance
-            for i in range(len(self.stock_symbols)):
-                portfolio_value += current_holdings[i] * prices[i]
-            weights = [h * p / portfolio_value if p > 0 else 0 for h, p in zip(current_holdings, prices)]
-            ret_state["h"] = np.array(weights, dtype=np.float64)
-            # balance should be normalized with portfolio value as well
-            ret_state["b"] = np.array([balance/portfolio_value], dtype=np.float64)
-        return ret_state
+        # ignore = {x for x in self.not_state_cols}
+        # ret_state = {k: v for k, v in self.current_state.items() if k not in ignore}
+        # # ALL: check there are no nan values
+        # for k, v in ret_state.items():
+        #     if np.isnan(v).any():  # replace nan with 0
+        #         ret_state[k] = np.nan_to_num(v)
+        # if include_all:  # need to fix holdings and balance
+        #     # holdings should be weights for the observation
+        #     prices = self._get_data("Close")
+        #     current_holdings = self.current_state["h"]
+        #     balance = self.current_state["b"][0] * self.initial_balance
+        #     portfolio_value = balance
+        #     for i in range(len(self.stock_symbols)):
+        #         portfolio_value += current_holdings[i] * prices[i]
+        #     weights = [h * p / portfolio_value if p > 0 else 0 for h, p in zip(current_holdings, prices)]
+        #     ret_state["h"] = np.array(weights, dtype=np.float64)
+        #     # balance should be normalized with portfolio value as well
+        #     ret_state["b"] = np.array([balance/portfolio_value], dtype=np.float64)
+        # return ret_state
     
     def _soft_max(self, x):
         return np.exp(x) / np.sum(np.exp(x), axis=0)

@@ -6,13 +6,13 @@ import os
 import pandas as pd
 import math
 
-num_dimensions = 30 #30  #1, 31
+num_dimensions = 426 #30 426  1, 31
 
 STEP_SIZE = 64 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 
-include_all = False
-action_type = "directions"  # "continuous", "directions", "multidiscrete", "weights"
+include_all = True
+action_type = "weights"  # "continuous", "directions", "multidiscrete", "weights"
 if action_type == "continuous":
     # continuous = [-1, 1]
     action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
@@ -30,15 +30,15 @@ elif action_type == "weights":
     # weights = [0, 1]
     action_space = spaces.Box(low=0.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
 
-dft_stock_symbols = [  #"MMM"]
-    "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
-    "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
-    "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
-]
+# dft_stock_symbols = [  #"MMM"]
+#     "MMM", "AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DD", "XOM",
+#     "GE", "GS", "HD", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT",
+#     "NKE", "PFE", "PG", "TRV", "UNH", "RTX", "VZ", "V", "WMT", "DIS", #"DJI"
+# ]
 
 #dft_stock_symbols = ["^GSPC"]
-#dft_stock_symbols = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'BRK-B', 'GOOG', 'JPM', 'LLY', 'UNH', 'XOM', 'V', 'MA', 'COST', 'HD', 'PG', 'WMT', 'NFLX', 'JNJ', 'CRM', 'BAC', 'ORCL', 'CVX', 'WFC', 'MRK', 'KO', 'CSCO', 'ADBE', 'ACN', 'AMD', 'PEP', 'LIN', 'MCD', 'IBM', 'DIS', 'PM', 'ABT', 'GE', 'CAT', 'TMO', 'ISRG', 'GS', 'VZ', 'TXN', 'INTU', 'QCOM', 'BKNG', 'AXP', 'SPGI', 'T', 'CMCSA', 'MS', 'RTX', 'NEE', 'PGR', 'LOW', 'DHR', 'AMGN', 'ETN', 'HON', 'UNP', 'PFE', 'AMAT', 'BLK', 'TJX', 'COP', 'BX', 'SYK', 'C', 'BSX', 'FI', 'ADP', 'SCHW', 'VRTX', 'TMUS', 'BMY', 'DE', 'MMC', 'SBUX', 'GILD', 'MU', 'LMT', 'BA', 'MDT', 'ADI', 'CB', 'PLD', 'INTC', 'UPS', 'MO', 'SO', 'AMT', 'LRCX', 'TT', 'CI', 'NKE', 'ELV', 'EQIX', 'ICE', 'SHW', 'PH', 'DUK', 'APH', 'MDLZ', 'CMG', 'PNC', 'CDNS', 'KLAC', 'SNPS', 'AON', 'CME', 'USB', 'WM', 'MSI', 'MCK', 'WELL', 'REGN', 'CL', 'MCO', 'CTAS', 'EMR', 'EOG', 'ITW', 'APD', 'CVS', 'COF', 'MMM', 'GD', 'ORLY', 'WMB', 'CSX', 'TDG', 'AJG', 'ADSK', 'FDX', 'MAR', 'NOC', 'OKE', 'BDX', 'TFC', 'ECL', 'NSC', 'FCX', 'SLB', 'PCAR', 'ROP', 'TRV', 'BK', 'DLR', 'SRE', 'TGT', 'FICO', 'URI', 'RCL', 'AFL', 'AMP', 'SPG', 'JCI', 'CPRT', 'PSA', 'ALL', 'GWW', 'AZO', 'AEP', 'CMI', 'MET', 'ROST', 'PWR', 'O', 'D', 'DHI', 'AIG', 'NEM', 'FAST', 'MSCI', 'PEG', 'KMB', 'PAYX', 'LHX', 'FIS', 'CCI', 'PRU', 'PCG', 'DFS', 'AME', 'TEL', 'AXON', 'VLO', 'RSG', 'COR', 'F', 'BKR', 'EW', 'ODFL', 'CBRE', 'LEN', 'DAL', 'HES', 'IT', 'KR', 'CTSH', 'XEL', 'EA', 'EXC', 'A', 'YUM', 'MNST', 'HPQ', 'VMC', 'ACGL', 'SYY', 'GLW', 'MTB', 'KDP', 'RMD', 'GIS', 'MCHP', 'LULU', 'STZ', 'NUE', 'MLM', 'EXR', 'IRM', 'HIG', 'HUM', 'WAB', 'ED', 'DD', 'IDXX', 'NDAQ', 'EIX', 'ROK', 'OXY', 'AVB', 'ETR', 'CSGP', 'GRMN', 'FITB', 'WTW', 'WEC', 'EFX', 'EBAY', 'UAL', 'CNC', 'RJF', 'DXCM', 'TTWO', 'ANSS', 'ON', 'TSCO', 'GPN', 'CAH', 'DECK', 'TPL', 'STT', 'PPG', 'NVR', 'DOV', 'PHM', 'HAL', 'MPWR', 'BR', 'TROW', 'TYL', 'EQT', 'CHD', 'BRO', 'AWK', 'NTAP', 'VTR', 'HBAN', 'EQR', 'MTD', 'DTE', 'PPL', 'ADM', 'CCL', 'HSY', 'AEE', 'RF', 'CINF', 'HUBB', 'SBAC', 'PTC', 'WDC', 'DVN', 'ATO', 'IFF', 'EXPE', 'WY', 'WST', 'WAT', 'BIIB', 'ES', 'WBD', 'ZBH', 'TDY', 'LDOS', 'NTRS', 'PKG', 'K', 'LYV', 'FE', 'BLDR', 'STX', 'STE', 'CNP', 'CMS', 'NRG', 'ZBRA', 'CLX', 'STLD', 'DRI', 'FSLR', 'IP', 'OMC', 'COO', 'LH', 'ESS', 'CTRA', 'MKC', 'SNA', 'WRB', 'LUV', 'MAA', 'BALL', 'PODD', 'FDS', 'PFG', 'HOLX', 'KEY', 'TSN', 'DGX', 'PNR', 'LVS', 'GPC', 'TER', 'TRMB', 'J', 'MAS', 'IEX', 'MOH', 'ARE', 'BBY', 'SMCI', 'ULTA', 'EXPD', 'KIM', 'NI', 'EL', 'BAX', 'GEN', 'EG', 'DPZ', 'AVY', 'LNT', 'ALGN', 'TXT', 'CF', 'L', 'DOC', 'VTRS', 'VRSN', 'JBHT', 'JBL', 'EVRG', 'FFIV', 'POOL', 'ROL', 'RVTY', 'AKAM', 'NDSN', 'TPR', 'DLTR', 'UDR', 'SWK', 'SWKS', 'CPT', 'KMX', 'CAG', 'HST', 'SJM', 'BG', 'JKHY', 'ALB', 'CHRW', 'EMN', 'UHS', 'REG', 'BXP', 'INCY', 'JNPR', 'AIZ', 'TECH', 'IPG', 'ERIE', 'TAP', 'PNW', 'LKQ', 'CRL', 'GL', 'MKTX', 'HSIC', 'HRL', 'CPB', 'TFX', 'RL', 'AES', 'AOS', 'FRT', 'MGM', 'WYNN', 'MTCH', 'HAS', 'APA', 'IVZ', 'MOS', 'CE', 'BWA', 'DVA', 'BF-B', 'FMC', 'MHK', 'BEN', 'PARA', 'WBA']
-dft_data_folder = "paper_data"  # sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
+dft_stock_symbols = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'BRK-B', 'GOOG', 'JPM', 'LLY', 'UNH', 'XOM', 'V', 'MA', 'COST', 'HD', 'PG', 'WMT', 'NFLX', 'JNJ', 'CRM', 'BAC', 'ORCL', 'CVX', 'WFC', 'MRK', 'KO', 'CSCO', 'ADBE', 'ACN', 'AMD', 'PEP', 'LIN', 'MCD', 'IBM', 'DIS', 'PM', 'ABT', 'GE', 'CAT', 'TMO', 'ISRG', 'GS', 'VZ', 'TXN', 'INTU', 'QCOM', 'BKNG', 'AXP', 'SPGI', 'T', 'CMCSA', 'MS', 'RTX', 'NEE', 'PGR', 'LOW', 'DHR', 'AMGN', 'ETN', 'HON', 'UNP', 'PFE', 'AMAT', 'BLK', 'TJX', 'COP', 'BX', 'SYK', 'C', 'BSX', 'FI', 'ADP', 'SCHW', 'VRTX', 'TMUS', 'BMY', 'DE', 'MMC', 'SBUX', 'GILD', 'MU', 'LMT', 'BA', 'MDT', 'ADI', 'CB', 'PLD', 'INTC', 'UPS', 'MO', 'SO', 'AMT', 'LRCX', 'TT', 'CI', 'NKE', 'ELV', 'EQIX', 'ICE', 'SHW', 'PH', 'DUK', 'APH', 'MDLZ', 'CMG', 'PNC', 'CDNS', 'KLAC', 'SNPS', 'AON', 'CME', 'USB', 'WM', 'MSI', 'MCK', 'WELL', 'REGN', 'CL', 'MCO', 'CTAS', 'EMR', 'EOG', 'ITW', 'APD', 'CVS', 'COF', 'MMM', 'GD', 'ORLY', 'WMB', 'CSX', 'TDG', 'AJG', 'ADSK', 'FDX', 'MAR', 'NOC', 'OKE', 'BDX', 'TFC', 'ECL', 'NSC', 'FCX', 'SLB', 'PCAR', 'ROP', 'TRV', 'BK', 'DLR', 'SRE', 'TGT', 'FICO', 'URI', 'RCL', 'AFL', 'AMP', 'SPG', 'JCI', 'CPRT', 'PSA', 'ALL', 'GWW', 'AZO', 'AEP', 'CMI', 'MET', 'ROST', 'PWR', 'O', 'D', 'DHI', 'AIG', 'NEM', 'FAST', 'MSCI', 'PEG', 'KMB', 'PAYX', 'LHX', 'FIS', 'CCI', 'PRU', 'PCG', 'DFS', 'AME', 'TEL', 'AXON', 'VLO', 'RSG', 'COR', 'F', 'BKR', 'EW', 'ODFL', 'CBRE', 'LEN', 'DAL', 'HES', 'IT', 'KR', 'CTSH', 'XEL', 'EA', 'EXC', 'A', 'YUM', 'MNST', 'HPQ', 'VMC', 'ACGL', 'SYY', 'GLW', 'MTB', 'KDP', 'RMD', 'GIS', 'MCHP', 'LULU', 'STZ', 'NUE', 'MLM', 'EXR', 'IRM', 'HIG', 'HUM', 'WAB', 'ED', 'DD', 'IDXX', 'NDAQ', 'EIX', 'ROK', 'OXY', 'AVB', 'ETR', 'CSGP', 'GRMN', 'FITB', 'WTW', 'WEC', 'EFX', 'EBAY', 'UAL', 'CNC', 'RJF', 'DXCM', 'TTWO', 'ANSS', 'ON', 'TSCO', 'GPN', 'CAH', 'DECK', 'TPL', 'STT', 'PPG', 'NVR', 'DOV', 'PHM', 'HAL', 'MPWR', 'BR', 'TROW', 'TYL', 'EQT', 'CHD', 'BRO', 'AWK', 'NTAP', 'VTR', 'HBAN', 'EQR', 'MTD', 'DTE', 'PPL', 'ADM', 'CCL', 'HSY', 'AEE', 'RF', 'CINF', 'HUBB', 'SBAC', 'PTC', 'WDC', 'DVN', 'ATO', 'IFF', 'EXPE', 'WY', 'WST', 'WAT', 'BIIB', 'ES', 'WBD', 'ZBH', 'TDY', 'LDOS', 'NTRS', 'PKG', 'K', 'LYV', 'FE', 'BLDR', 'STX', 'STE', 'CNP', 'CMS', 'NRG', 'ZBRA', 'CLX', 'STLD', 'DRI', 'FSLR', 'IP', 'OMC', 'COO', 'LH', 'ESS', 'CTRA', 'MKC', 'SNA', 'WRB', 'LUV', 'MAA', 'BALL', 'PODD', 'FDS', 'PFG', 'HOLX', 'KEY', 'TSN', 'DGX', 'PNR', 'LVS', 'GPC', 'TER', 'TRMB', 'J', 'MAS', 'IEX', 'MOH', 'ARE', 'BBY', 'SMCI', 'ULTA', 'EXPD', 'KIM', 'NI', 'EL', 'BAX', 'GEN', 'EG', 'DPZ', 'AVY', 'LNT', 'ALGN', 'TXT', 'CF', 'L', 'DOC', 'VTRS', 'VRSN', 'JBHT', 'JBL', 'EVRG', 'FFIV', 'POOL', 'ROL', 'RVTY', 'AKAM', 'NDSN', 'TPR', 'DLTR', 'UDR', 'SWK', 'SWKS', 'CPT', 'KMX', 'CAG', 'HST', 'SJM', 'BG', 'JKHY', 'ALB', 'CHRW', 'EMN', 'UHS', 'REG', 'BXP', 'INCY', 'JNPR', 'AIZ', 'TECH', 'IPG', 'ERIE', 'TAP', 'PNW', 'LKQ', 'CRL', 'GL', 'MKTX', 'HSIC', 'HRL', 'CPB', 'TFX', 'RL', 'AES', 'AOS', 'FRT', 'MGM', 'WYNN', 'MTCH', 'HAS', 'APA', 'IVZ', 'MOS', 'CE', 'BWA', 'DVA', 'BF-B', 'FMC', 'MHK', 'BEN', 'PARA', 'WBA']
+dft_data_folder = "sp_full_data"  # sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
 rf_data_folder = "dow_data_norm"
 
 dft_start_date = "2009-01-01"
@@ -119,7 +119,7 @@ class YFDagger(gym.Env):
         self.current_sharpe = 0
         self.current_annual_return = 0
         self.reward_type = "roi"  # "roi"
-        self.eval = False    # use for evaluation
+        self.eval = True    # use for evaluation
         self.log = self.eval
         self.current_state = {}
         self.reset()
