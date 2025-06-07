@@ -11,8 +11,8 @@ num_dimensions = 426 #30 426  1, 31
 STEP_SIZE = 64 #1
 K = 1000  # 1000 if 1 trading day for 0.2% commission
 
-include_all = True
-action_type = "weights"  # "continuous", "directions", "multidiscrete", "weights"
+include_all = False  # True
+action_type = "multidiscrete"  # "continuous", "directions", "multidiscrete", "weights"
 if action_type == "continuous":
     # continuous = [-1, 1]
     action_space = spaces.Box(low=-1.0, high=1.0, shape=(num_dimensions,), dtype=np.float32)
@@ -38,8 +38,9 @@ elif action_type == "weights":
 
 #dft_stock_symbols = ["^GSPC"]
 dft_stock_symbols = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'BRK-B', 'GOOG', 'JPM', 'LLY', 'UNH', 'XOM', 'V', 'MA', 'COST', 'HD', 'PG', 'WMT', 'NFLX', 'JNJ', 'CRM', 'BAC', 'ORCL', 'CVX', 'WFC', 'MRK', 'KO', 'CSCO', 'ADBE', 'ACN', 'AMD', 'PEP', 'LIN', 'MCD', 'IBM', 'DIS', 'PM', 'ABT', 'GE', 'CAT', 'TMO', 'ISRG', 'GS', 'VZ', 'TXN', 'INTU', 'QCOM', 'BKNG', 'AXP', 'SPGI', 'T', 'CMCSA', 'MS', 'RTX', 'NEE', 'PGR', 'LOW', 'DHR', 'AMGN', 'ETN', 'HON', 'UNP', 'PFE', 'AMAT', 'BLK', 'TJX', 'COP', 'BX', 'SYK', 'C', 'BSX', 'FI', 'ADP', 'SCHW', 'VRTX', 'TMUS', 'BMY', 'DE', 'MMC', 'SBUX', 'GILD', 'MU', 'LMT', 'BA', 'MDT', 'ADI', 'CB', 'PLD', 'INTC', 'UPS', 'MO', 'SO', 'AMT', 'LRCX', 'TT', 'CI', 'NKE', 'ELV', 'EQIX', 'ICE', 'SHW', 'PH', 'DUK', 'APH', 'MDLZ', 'CMG', 'PNC', 'CDNS', 'KLAC', 'SNPS', 'AON', 'CME', 'USB', 'WM', 'MSI', 'MCK', 'WELL', 'REGN', 'CL', 'MCO', 'CTAS', 'EMR', 'EOG', 'ITW', 'APD', 'CVS', 'COF', 'MMM', 'GD', 'ORLY', 'WMB', 'CSX', 'TDG', 'AJG', 'ADSK', 'FDX', 'MAR', 'NOC', 'OKE', 'BDX', 'TFC', 'ECL', 'NSC', 'FCX', 'SLB', 'PCAR', 'ROP', 'TRV', 'BK', 'DLR', 'SRE', 'TGT', 'FICO', 'URI', 'RCL', 'AFL', 'AMP', 'SPG', 'JCI', 'CPRT', 'PSA', 'ALL', 'GWW', 'AZO', 'AEP', 'CMI', 'MET', 'ROST', 'PWR', 'O', 'D', 'DHI', 'AIG', 'NEM', 'FAST', 'MSCI', 'PEG', 'KMB', 'PAYX', 'LHX', 'FIS', 'CCI', 'PRU', 'PCG', 'DFS', 'AME', 'TEL', 'AXON', 'VLO', 'RSG', 'COR', 'F', 'BKR', 'EW', 'ODFL', 'CBRE', 'LEN', 'DAL', 'HES', 'IT', 'KR', 'CTSH', 'XEL', 'EA', 'EXC', 'A', 'YUM', 'MNST', 'HPQ', 'VMC', 'ACGL', 'SYY', 'GLW', 'MTB', 'KDP', 'RMD', 'GIS', 'MCHP', 'LULU', 'STZ', 'NUE', 'MLM', 'EXR', 'IRM', 'HIG', 'HUM', 'WAB', 'ED', 'DD', 'IDXX', 'NDAQ', 'EIX', 'ROK', 'OXY', 'AVB', 'ETR', 'CSGP', 'GRMN', 'FITB', 'WTW', 'WEC', 'EFX', 'EBAY', 'UAL', 'CNC', 'RJF', 'DXCM', 'TTWO', 'ANSS', 'ON', 'TSCO', 'GPN', 'CAH', 'DECK', 'TPL', 'STT', 'PPG', 'NVR', 'DOV', 'PHM', 'HAL', 'MPWR', 'BR', 'TROW', 'TYL', 'EQT', 'CHD', 'BRO', 'AWK', 'NTAP', 'VTR', 'HBAN', 'EQR', 'MTD', 'DTE', 'PPL', 'ADM', 'CCL', 'HSY', 'AEE', 'RF', 'CINF', 'HUBB', 'SBAC', 'PTC', 'WDC', 'DVN', 'ATO', 'IFF', 'EXPE', 'WY', 'WST', 'WAT', 'BIIB', 'ES', 'WBD', 'ZBH', 'TDY', 'LDOS', 'NTRS', 'PKG', 'K', 'LYV', 'FE', 'BLDR', 'STX', 'STE', 'CNP', 'CMS', 'NRG', 'ZBRA', 'CLX', 'STLD', 'DRI', 'FSLR', 'IP', 'OMC', 'COO', 'LH', 'ESS', 'CTRA', 'MKC', 'SNA', 'WRB', 'LUV', 'MAA', 'BALL', 'PODD', 'FDS', 'PFG', 'HOLX', 'KEY', 'TSN', 'DGX', 'PNR', 'LVS', 'GPC', 'TER', 'TRMB', 'J', 'MAS', 'IEX', 'MOH', 'ARE', 'BBY', 'SMCI', 'ULTA', 'EXPD', 'KIM', 'NI', 'EL', 'BAX', 'GEN', 'EG', 'DPZ', 'AVY', 'LNT', 'ALGN', 'TXT', 'CF', 'L', 'DOC', 'VTRS', 'VRSN', 'JBHT', 'JBL', 'EVRG', 'FFIV', 'POOL', 'ROL', 'RVTY', 'AKAM', 'NDSN', 'TPR', 'DLTR', 'UDR', 'SWK', 'SWKS', 'CPT', 'KMX', 'CAG', 'HST', 'SJM', 'BG', 'JKHY', 'ALB', 'CHRW', 'EMN', 'UHS', 'REG', 'BXP', 'INCY', 'JNPR', 'AIZ', 'TECH', 'IPG', 'ERIE', 'TAP', 'PNW', 'LKQ', 'CRL', 'GL', 'MKTX', 'HSIC', 'HRL', 'CPB', 'TFX', 'RL', 'AES', 'AOS', 'FRT', 'MGM', 'WYNN', 'MTCH', 'HAS', 'APA', 'IVZ', 'MOS', 'CE', 'BWA', 'DVA', 'BF-B', 'FMC', 'MHK', 'BEN', 'PARA', 'WBA']
-dft_data_folder = "sp_full_data"  # sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
-rf_data_folder = "dow_data_norm"
+dft_data_folder = "sp_full_data_2024"  # sp_data dow_data_norm, dow_data_norm_old, paper_data, data/full_data
+#rf_data_folder = "dow_data_norm"
+rf_file = "rf.csv"
 
 dft_start_date = "2009-01-01"
 dft_end_date = "2015-01-01"
@@ -113,8 +114,10 @@ class YFDagger(gym.Env):
 
         self.current_pos = 0
         self.rois = []
+        self.portfolio_values = []
         self.rfs = []
         self.holdings = [0 for _ in range(num_dimensions)]
+        self.benchmark_prices = []
         self.invalid_actions = 0
         self.current_sharpe = 0
         self.current_annual_return = 0
@@ -152,6 +155,8 @@ class YFDagger(gym.Env):
         self.invalid_actions = 0
         self.rois = []
         self.rfs = []
+        self.portfolio_values = [self.initial_balance]
+        self.benchmark_prices = get_benchmark_prices(self.start_date, self.end_date)
         self.holdings = [0 for _ in range(num_dimensions)]
         self.current_state = self.get_state_data()
         return self._get_observation(), {}
@@ -204,6 +209,7 @@ class YFDagger(gym.Env):
                 custom_str = ",".join(custom_list)
                 with open(f"custom_log.txt", "a") as f:
                     f.write(str(custom_str) + "\n")
+                self.calculate_metrics()
         info = self._get_info()
         ret_state = self._get_observation()
         # Make sure reward is not nan
@@ -299,8 +305,15 @@ class YFDagger(gym.Env):
     def _get_reward_and_state(self, action_):
         # action fix
         action = self._action_fix(action_)
+        # ignore positions
+        ignore_stocks = ['V', 'PM', 'BX', 'TMUS', 'MSCI', 'DFS', 'TEL', 'DAL', 'KDP', 'LULU', 'BR', 'AWK', 'PODD', 'SMCI', 'ULTA']
+        ignore_positions = [i for i, symbol in enumerate(self.stock_symbols) if symbol in ignore_stocks]
+        for i in ignore_positions:
+            action[i] = 0
 
         portfolio_value = self.current_state["b"][0] * self.initial_balance  # balance left from previous day
+        if np.any(np.isnan(portfolio_value)):
+            raise Exception(f"Error: portfolio value is NaN: 1")
         initial_prices = self._get_data("Close")
         initial_holdings = self.current_state["h"]
 
@@ -314,6 +327,8 @@ class YFDagger(gym.Env):
         stocks_to_buy = {}
         fixed_cost = 1 - self.transaction_cost
         for i in range(len(self.stock_symbols)):
+            if i in ignore_positions:
+                continue
             portfolio_value += initial_holdings[i] * initial_prices[i]
             # NOTE: sell -> positive in paper
             if action[i] < 0:  # sell
@@ -327,6 +342,8 @@ class YFDagger(gym.Env):
                 stocks_to_buy[i] = action[i]
             else:  # hold
                 pass
+        if np.any(np.isnan(portfolio_value)):
+            raise Exception(f"Error: portfolio value is NaN: 2")
         fixed_cost = 1 + self.transaction_cost
         # print("needed to buy", needed_to_buy * fixed_cost)
         # print("after sell balance", balance)
@@ -356,12 +373,35 @@ class YFDagger(gym.Env):
                 final_holdings[i] = initial_holdings[i] + stocks_to_buy[i]
             else:
                 final_holdings[i] = max(initial_holdings[i] + action[i], 0)
-            new_value += final_holdings[i] * closing_prices[i]
+            stock_new_value = final_holdings[i] * closing_prices[i]
+            stock_new_value = np.nan_to_num(stock_new_value)
+            if np.isnan(stock_new_value):
+                raise Exception(f"Stock new value is NaN: {stock_new_value}")
+            new_value += stock_new_value
+        if np.any(np.isnan(closing_prices)):
+            date = self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"]
+            nan_symbols = [self.stock_symbols[i] for i in range(len(self.stock_symbols)) if np.isnan(closing_prices[i])]
+            shouldnt_be_nan = set(nan_symbols) - set(ignore_stocks)
+            if shouldnt_be_nan:
+                print("NaN symbols", shouldnt_be_nan)
+                print("Date", date, "NaN symbols", nan_symbols)
+                raise Exception(f"Closing prices are NaN: {nan_symbols}")
+        if not (balance + new_value >= 0):
+            print(closing_prices, self.current_pos)
+            date = self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"]
+            print("Date", date)
+            raise Exception(f"Portfolio value is negative: {balance + new_value}")
         roi = balance + new_value - portfolio_value
+        if np.isnan(roi):
+            date = self.stock_data[self.stock_symbols[0]].iloc[self.current_pos]["Date"]
+            print("NaN roi", roi, "Date", date)
+            print("Portfolio value", portfolio_value, "Balance", balance, "New value", new_value)
+            raise Exception(f"ROI is NaN", roi, "Date", date, "Portfolio value", portfolio_value, "Balance", balance, "New value", new_value)
         roi /= max(portfolio_value, 1)
         self.rois.append(roi)
         rf = self._get_data("rf_daily")[0]
         self.rfs.append(rf)
+        self.portfolio_values.append(balance + new_value)
         # log info
         self.holdings = [x for x in final_holdings]
         if self.log:
@@ -502,3 +542,182 @@ class YFDagger(gym.Env):
             "prices": self._get_data("Close"),
             "best_action": self._get_best_action()
         }
+    
+    def calculate_metrics(self):
+        DAYS_PER_YEAR = 252
+        all_portfolio_values = self.portfolio_values
+        rfs = self.rfs
+        benchmark_prices = self.benchmark_prices
+        # 3) Métricas para el periodo completo
+        metrics_total = compute_metrics(
+            portfolio_values   = np.array(all_portfolio_values),
+            rf_daily           = np.array(rfs),
+            benchmark_prices   = np.array(benchmark_prices),
+            days_per_year      = DAYS_PER_YEAR
+        )
+
+        # 4) Métricas por ventana (1, 3, 5 años)
+        metrics_by_period = {}
+        for years in [1, 3, 5]:
+            n_days = years * DAYS_PER_YEAR
+            # Para returns necesitamos n_days+1 prices, rfs y bench aligned
+            if len(all_portfolio_values) >= n_days+1:
+                slice_vals  = np.array(all_portfolio_values[:n_days + 1])
+                slice_rfs   = np.array(rfs[:n_days])  # length N-1, aligned with returns
+                slice_bench = np.array(benchmark_prices[:n_days + 1])
+                metrics_by_period[f"{years}_year"] = compute_metrics(
+                    portfolio_values = slice_vals,
+                    rf_daily         = slice_rfs,
+                    benchmark_prices = slice_bench,
+                    days_per_year    = DAYS_PER_YEAR
+                )
+        import json
+        output = {
+            "final_cash":             self.current_state["b"][0] * self.initial_balance,
+            "final_holdings":         self.holdings,
+            "final_portfolio_value":  all_portfolio_values[-1],
+            "metrics_total":          metrics_total,
+            "metrics_by_period":      metrics_by_period,
+        }
+        filename = f"results_2024.json"
+        # if filename already exists, append a number to the filename
+        i = 1
+        while os.path.exists(filename):
+            filename = f"results_2024_{i}.json"
+            i += 1
+        with open(filename, "w") as f:
+            json.dump(output, f, indent=2)
+
+
+def compute_metrics(portfolio_values, rf_daily, benchmark_prices, days_per_year=252):
+    port_returns = portfolio_values[1:] / portfolio_values[:-1] - 1
+    bench_returns = benchmark_prices[1:] / benchmark_prices[:-1] - 1
+    rf            = np.array(rf_daily)  #[1:]                  # length N-1, aligned with returns
+    n = len(port_returns)  # length N-1
+    # 1) Check lengths
+    assert len(port_returns) == len(bench_returns) == len(rf), (
+        f"Lengths differ: returns {len(port_returns)}, bench {len(bench_returns)}, rf {len(rf)}"
+    )
+    if np.any(np.isnan(portfolio_values)) or np.any(portfolio_values <= 0):
+        raise ValueError("Invalid portfolio values: contains NaNs or non-positive values")
+    if np.any(np.isnan(benchmark_prices)) or np.any(benchmark_prices <= 0):
+        raise ValueError("Invalid benchmark prices: contains NaNs or non-positive values")
+
+    # 2) Excesos diarios
+    excess_returns = port_returns - rf
+
+    # 3) Alpha & Beta (OLS)
+    x = bench_returns - rf
+    y = port_returns - rf
+    x_mean = x.mean()
+    y_mean = y.mean()
+    sum_squared_x = ((x - x_mean) ** 2).sum()
+    sum_cov_xy = ((x - x_mean) * (y - y_mean)).sum()
+    beta = sum_cov_xy / sum_squared_x if sum_squared_x > 0 else np.nan
+    alpha = y_mean - beta * x_mean
+    #alpha_annualized = (1 + alpha) ** days_per_year - 1
+    alpha_annualized = alpha * days_per_year
+
+
+    # 4) t‑stat de alpha
+    residuals = y - (alpha + beta * x)
+    sum_squared_res = (residuals ** 2).sum()
+    sigma_residual = np.sqrt(sum_squared_res / (n - 2))
+    se_alpha = sigma_residual * np.sqrt(1/n + x_mean**2 / sum_squared_x)
+    alpha_t_stat = alpha / se_alpha if se_alpha > 1e-8 else np.nan
+
+    # 5) Tracking error diario y active risk anualizado
+    tracking_error_daily = np.std(y - x, ddof=1)
+    active_risk = tracking_error_daily * np.sqrt(days_per_year)
+
+    # 6) Information Ratio anualizada
+    information_ratio = (excess_returns.mean() / tracking_error_daily) * np.sqrt(days_per_year) if tracking_error_daily > 0 else np.nan
+
+    # 7) Correlación diaria
+    correlation = np.corrcoef(x, y)[0, 1]
+
+    # 8) CAGRs de portafolio y benchmark
+    total_factor_port = np.prod(1 + port_returns)
+    total_factor_bench = np.prod(1 + bench_returns)
+    years = n / days_per_year
+    annual_return_portfolio = total_factor_port**(1/years) - 1
+    annual_return_benchmark = total_factor_bench**(1/years) - 1
+
+    # 9) Sharpe Ratio anualizado
+    std_excess = np.std(excess_returns, ddof=1)
+    sharpe_ratio = (excess_returns.mean() / std_excess) * np.sqrt(days_per_year) if std_excess > 0 else np.nan
+
+    # 9.2) Sharpe Ratio benchmark anualizado
+    std_bench = np.std((bench_returns - rf), ddof=1)
+    sharpe_ratio_benchmark = ((bench_returns - rf).mean() / std_bench) * np.sqrt(days_per_year) if std_bench > 0 else np.nan
+
+    # 10) Volatilidades anualizadas
+    portfolio_std_annual = np.std(port_returns, ddof=1) * np.sqrt(days_per_year)
+    benchmark_std_annual = np.std(bench_returns, ddof=1) * np.sqrt(days_per_year)
+
+    # 11) Excess returns: acumulado y anual
+    excess_return_cum = total_factor_port - total_factor_bench
+    excess_return_ann = annual_return_portfolio - annual_return_benchmark
+
+    # 12) Max Drawdown
+    running_max = np.maximum.accumulate(portfolio_values)
+    drawdowns = (portfolio_values - running_max) / running_max
+    max_drawdown = drawdowns.min()
+
+    # 13) Calmar Ratio
+    calmar_ratio = annual_return_portfolio / abs(max_drawdown) if max_drawdown != 0 else np.nan
+
+    # 14) Downside Deviation (below 0% return, not rf)
+    negative_returns = np.minimum(excess_returns, 0)
+    downside_deviation_daily = np.std(negative_returns, ddof=1)
+    downside_deviation_annual = downside_deviation_daily * np.sqrt(days_per_year)
+
+    # 15) Sortino Ratio
+    sortino_ratio = (excess_returns.mean() * days_per_year) / downside_deviation_annual if downside_deviation_annual > 0 else np.nan
+
+
+    return {
+        "annual_return_portfolio": annual_return_portfolio,
+        "annual_return_benchmark": annual_return_benchmark,
+        "excess_return_cum": excess_return_cum,
+        "excess_return_ann": excess_return_ann,
+        "sharpe_ratio": sharpe_ratio,
+        "sharpe_ratio_benchmark": sharpe_ratio_benchmark,
+        "alpha": alpha,
+        "alpha_annualized": alpha_annualized,
+        "alpha_t_stat": alpha_t_stat,
+        "beta": beta,
+        "information_ratio": information_ratio,
+        "correlation": correlation,
+        "portfolio_std_annual": portfolio_std_annual,
+        "benchmark_std_annual": benchmark_std_annual,
+        "active_risk_annual": active_risk,
+        "n_obs": n,
+        "max_drawdown": max_drawdown,
+        "calmar_ratio": calmar_ratio,
+        "downside_deviation_annual": downside_deviation_annual,
+        "sortino_ratio": sortino_ratio,
+    }
+
+def get_benchmark_prices(start_date, end_date):
+    # one day less for start_date
+    start_date = pd.to_datetime(start_date) - pd.Timedelta(days=1)
+    start_date = start_date.strftime("%Y-%m-%d")
+    # load if data exists
+    if os.path.exists("GSPC.csv"):
+        print("GSPC.csv found, loading data")
+        data = pd.read_csv("GSPC.csv")
+        data["Date"] = pd.to_datetime(data["Date"])
+        data.set_index("Date", inplace=True)
+        print("GSPC.csv loaded")
+        print(data.head())
+        close = data.loc[start_date:end_date]["Close"]
+        return close.tolist()  # length N
+    print("GSPC.csv not found, downloading data... current path:", os.getcwd())
+    # download data otherwise
+    import yfinance as yf
+    data = yf.download("^GSPC", start=start_date, end=end_date)
+    close = data["Close"]["^GSPC"]
+    # save to csv GSPC.csv
+    close.to_csv("GSPC.csv")
+    return close.tolist()      # length N
